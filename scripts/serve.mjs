@@ -11,7 +11,7 @@ const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascrip
 const server = createServer(async (request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
   const relative = pathname === "/" ? "index.html" : pathname.slice(1);
-  const candidates = [normalize(join(root, relative)), normalize(join(root, "public", relative))];
+  const candidates = [normalize(join(root, relative))];
 
   if (candidates.some((filePath) => !filePath.startsWith(root))) {
     response.writeHead(403).end("Forbidden");
