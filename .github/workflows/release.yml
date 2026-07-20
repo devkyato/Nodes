@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Create release archive
+        run: tar -czf "flowchart-creator-${GITHUB_REF_NAME}.tar.gz" -C dist .
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "flowchart-creator-${GITHUB_REF_NAME}.tar.gz" --verify-tag --generate-notes --title "Flowchart Creator ${GITHUB_REF_NAME}"
+

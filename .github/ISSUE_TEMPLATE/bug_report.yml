@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible problem in Flowchart Creator.
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a Process shape
+        2. Connect it to a Decision
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 130, Firefox 132, Safari 18
+    validations:
+      required: true
+  - type: textarea
+    id: project
+    attributes:
+      label: Project JSON or screenshot
+      description: Attach a minimal exported project or screenshot when useful. Remove sensitive diagram content first.
+
