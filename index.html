@@ -77,6 +77,7 @@
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="text" title="Text tool (T)">✎ Text</button>
       </div>
       <div class="toolbar-spacer"></div>
+      <div class="toolbar-actions" aria-label="Workspace actions">
       <div class="dropdown relative inline-flex">
         <button id="arrange-menu" type="button" class="dropdown-toggle btn btn-sm btn-text" aria-haspopup="menu" aria-expanded="false">Arrange <span class="menu-caret">⌄</span></button>
         <ul class="dropdown-menu compact-menu dropdown-open:opacity-100 hidden min-w-56" role="menu" aria-orientation="vertical" aria-labelledby="arrange-menu">
@@ -155,6 +156,7 @@
       <button type="button" class="btn btn-sm btn-text command-trigger" title="Command menu (Ctrl+K)" aria-label="Open command menu" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-modal" data-overlay="#command-modal">⌘K</button>
       <button type="button" class="btn btn-sm btn-text btn-square" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-modal" data-overlay="#settings-modal">⚙</button>
       <button type="button" class="btn btn-sm btn-text btn-square" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-haspopup="dialog" aria-expanded="false" aria-controls="shortcuts-modal" data-overlay="#shortcuts-modal">?</button>
+      </div>
       <input id="file-input" type="file" accept="application/json,application/xml,text/xml,.json,.xml" hidden>
     </header>
 

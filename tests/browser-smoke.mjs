@@ -359,6 +359,16 @@ try {
     check();
   }))()`);
   assert(xmlImport.status.includes("Imported XML") && xmlImport.nodes === 10 && xmlImport.edges === 7, `XML round-trip failed: ${JSON.stringify(xmlImport)}`);
+
+  await client.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  const mobileToolbar = await client.evaluate(`new Promise((resolve) => requestAnimationFrame(() => {
+    const controls = [...document.querySelectorAll('.toolbar [data-mode], #arrange-menu, #view-menu, #project-menu, #theme-toggle, .toolbar button[title="Settings"], .toolbar button[title="Keyboard shortcuts"]')];
+    resolve(controls.map((control) => {
+      const rect = control.getBoundingClientRect();
+      return { label: control.getAttribute('aria-label') || control.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, visible: getComputedStyle(control).display !== 'none' };
+    }));
+  }))`);
+  assert(mobileToolbar.every((control) => control.visible && control.left >= 0 && control.right <= 390 && control.top >= 0 && control.bottom <= 118), `Mobile toolbar controls are clipped: ${JSON.stringify(mobileToolbar)}`);
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
   console.log("Browser smoke test passed: FlyonUI settings, commands, themes, locking, menus, modals, rendering, connectors, persistence, XML/JSON projects, and SVG/PNG export.");
