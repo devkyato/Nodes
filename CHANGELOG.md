@@ -4,6 +4,23 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-20
+
+### Added
+
+- FlyonUI and Tailwind CSS build pipeline with purposeful dropdown, modal, tabs, card, switch, select, badge, alert, and input components.
+- Draw.io-inspired contextual toolbar for editing, duplicating, locking, and deleting the active shape.
+- Searchable command menu with Ctrl/Cmd + K access and keyboard navigation.
+- Persistent Settings center for themes, reduced motion, grid, snapping, automatic drafts, and new-connector defaults.
+- Searchable shape palette, single-open-menu behavior, grid visibility controls, and lightweight action toasts.
+- Browser coverage for settings persistence, command routing, modal confirmation, object locking, menu exclusivity, and shape filtering.
+
+### Changed
+
+- Consolidated project and export actions into one clear File menu to reduce toolbar clutter.
+- Refined the cover-inspired monochrome surfaces with a restrained blue selection color and animated directional shine.
+- Expanded XML and JSON projects to preserve grid visibility and object lock state.
+
 ## [1.2.0] - 2026-07-20
 
 ### Added
@@ -51,7 +68,8 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 - Dependency-free packaging and browser workflow tests.
 - Automated CI, GitHub Pages deployment, and tag-based GitHub releases.
 
-[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/devkyato/Nodes/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/devkyato/Nodes/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/devkyato/Nodes/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/devkyato/Nodes/compare/v1.0.0...v1.1.0

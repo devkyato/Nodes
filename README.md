@@ -6,7 +6,7 @@
 [![Pages](https://github.com/devkyato/Nodes/actions/workflows/pages.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/pages.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A compact, browser-based flowchart editor built with HTML, CSS, vanilla JavaScript, and SVG. It has no runtime dependencies, sends no diagram data to a server, and works by opening `index.html` directly.
+A compact, browser-based flowchart editor built with HTML, vanilla JavaScript, SVG, Tailwind CSS, and FlyonUI. The published app has no runtime services, sends no diagram data to a server, and keeps projects private to the browser.
 
 [✨ Open Flowchart Creator](https://devkyato.github.io/Nodes/)
 
@@ -18,17 +18,21 @@ Built and maintained by [@dev.mako](https://github.com/devkyato) (`devkyato`). I
 - Direct multiline text editing and standalone text
 - Straight, orthogonal, and curved connectors that stay attached
 - Multi-selection, alignment, distribution, grouping, and layer controls
+- Draw.io-inspired selection handles plus contextual edit, copy, lock, and delete actions
 - Pointer, keyboard, zoom, pan, resize, copy, paste, undo, and redo support
 - Local browser saving plus portable JSON project files
 - Automatic local drafts plus structured XML project import and export
 - Clean SVG and PNG export cropped to the diagram bounds
-- Responsive light and dark themes with a compact, minimal interface
+- Responsive light and dark themes with subtle premium shine and reduced-motion support
+- FlyonUI-powered dropdowns, tabs, cards, switches, selects, modals, badges, alerts, and command surfaces
+- Searchable shape palette, searchable command menu, and a persistent Settings center
 
 ## 🚀 Use locally
 
-Open `index.html` in a modern browser. For a local HTTP server:
+Install the development dependencies and start the local server:
 
 ```bash
+npm install
 npm start
 ```
 
@@ -42,6 +46,8 @@ Then open `http://127.0.0.1:4173`.
 | Pan | Hold Space and drag |
 | Zoom | Ctrl/Cmd + mouse wheel |
 | Edit text | Double-click a shape, label, or standalone text |
+| Edit selected shape | Enter or use the contextual Edit action |
+| Lock / unlock | Select one shape and use the contextual Lock action |
 | Add standalone text | Double-click empty canvas or use Text |
 | Move precisely | Arrow keys; hold Shift for 10 px |
 | Duplicate | Ctrl/Cmd + D |
@@ -49,6 +55,7 @@ Then open `http://127.0.0.1:4173`.
 | Undo / redo | Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z |
 | Finish text editing | Click outside or Ctrl/Cmd + Enter |
 | Cancel text editing | Escape |
+| Open command menu | Ctrl/Cmd + K |
 
 ## 📁 Project files
 
@@ -56,6 +63,7 @@ Then open `http://127.0.0.1:4173`.
 index.html          Application structure
 style.css           Interface and responsive styling
 script.js           State, rendering, interaction, persistence, export
+src/flyon.css       Tailwind and FlyonUI build entrypoint
 scripts/            Dependency-free local server and build packaging
 tests/              Headless-browser workflow verification
 .github/            CI, Pages, releases, and contribution templates
@@ -69,11 +77,11 @@ npm test
 npm run build
 ```
 
-The browser smoke suite exercises themes, rendering, connectors, zoomed dragging, resizing, text editing, history, local persistence, XML/JSON projects, and SVG/PNG export.
+The browser smoke suite exercises themes, FlyonUI settings, command search, menus, modals, locking, rendering, connectors, zoomed dragging, resizing, text editing, history, local persistence, XML/JSON projects, and SVG/PNG export.
 
 ## 🔒 Privacy
 
-Projects remain in the browser unless the user downloads or imports a file. The application has no analytics, accounts, API calls, or remote storage.
+Projects and personal editor settings remain in the browser unless the user downloads or imports a file. The application has no analytics, accounts, API calls, or remote storage.
 
 ## 👋 Maintainer
 
