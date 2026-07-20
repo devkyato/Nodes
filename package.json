@@ -3,6 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "description": "A compact, dependency-free SVG flowchart editor.",
+  "homepage": "https://devkyato.github.io/Nodes/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devkyato/Nodes.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devkyato/Nodes/issues"
+  },
+  "author": {
+    "name": "@dev.mako",
+    "url": "https://github.com/devkyato"
+  },
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
@@ -17,6 +29,9 @@
     "flowchart",
     "diagram",
     "svg",
+    "flowchart-maker",
+    "diagram-editor",
+    "productivity",
     "vanilla-javascript"
   ],
   "license": "MIT"

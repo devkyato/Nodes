@@ -8,6 +8,8 @@ A compact, browser-based flowchart editor built with HTML, CSS, vanilla JavaScri
 
 [Open Flowchart Creator](https://devkyato.github.io/Nodes/)
 
+Built and maintained by [@dev.mako](https://github.com/devkyato) (`devkyato`). I made this as a practical, private diagram tool: fast enough to open for a five-minute sketch, capable enough to keep using when the flow gets real, and simple enough to understand without a manual.
+
 ## Highlights
 
 - Twelve standard flowchart symbols with accurate SVG geometry
@@ -69,6 +71,10 @@ The browser smoke suite exercises rendering, connectors, zoomed dragging, resizi
 ## Privacy
 
 Projects remain in the browser unless the user downloads or imports a file. The application has no analytics, accounts, API calls, or remote storage.
+
+## Maintainer
+
+I’m [@dev.mako](https://github.com/devkyato). If this tool saves you time, star the repository, share the live editor, or open a focused issue with an idea that would make real diagram work smoother.
 
 ## Contributing
 

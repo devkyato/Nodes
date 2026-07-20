@@ -1,0 +1,11 @@
+{
+  "name": "Flowchart Creator",
+  "short_name": "Flowchart",
+  "description": "A compact, private SVG flowchart editor by @dev.mako.",
+  "start_url": "/Nodes/",
+  "scope": "/Nodes/",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#ffffff",
+  "categories": ["productivity", "utilities", "design"]
+}

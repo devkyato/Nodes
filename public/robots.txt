@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://devkyato.github.io/Nodes/sitemap.xml

@@ -215,6 +215,8 @@ button.active { color: #164db8; background: var(--accent-soft); border-color: #b
   z-index: 5;
 }
 #status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maintainer-link { color: #66707d; text-decoration: none; }
+.maintainer-link:hover { color: var(--accent); text-decoration: underline; }
 #selection-status { margin-left: auto; }
 
 @media (max-width: 1060px) {

@@ -3,10 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A compact, dependency-free flowchart editor.">
+  <meta name="description" content="Create, connect, edit, save, and export polished flowcharts in a fast, private, dependency-free SVG editor by @dev.mako.">
+  <meta name="author" content="@dev.mako (devkyato)">
+  <meta name="keywords" content="flowchart creator, flowchart maker, diagram editor, SVG flowchart, process diagram, free flowchart tool, browser diagram editor">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="application-name" content="Flowchart Creator">
+  <link rel="canonical" href="https://devkyato.github.io/Nodes/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flowchart Creator">
+  <meta property="og:title" content="Flowchart Creator by @dev.mako">
+  <meta property="og:description" content="A fast, private SVG flowchart editor with real symbols, attached connectors, direct text editing, and clean exports.">
+  <meta property="og:url" content="https://devkyato.github.io/Nodes/">
+  <meta property="og:image" content="https://devkyato.github.io/Nodes/og.png">
+  <meta property="og:image:width" content="1728">
+  <meta property="og:image:height" content="909">
+  <meta property="og:image:alt" content="Flowchart Creator by @dev.mako with a compact editable process diagram">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flowchart Creator by @dev.mako">
+  <meta name="twitter:description" content="A compact, private SVG flowchart editor that runs entirely in your browser.">
+  <meta name="twitter:image" content="https://devkyato.github.io/Nodes/og.png">
   <title>Flowchart Creator</title>
   <link rel="icon" href="data:,">
+  <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Flowchart Creator",
+      "url": "https://devkyato.github.io/Nodes/",
+      "description": "A compact, dependency-free SVG flowchart editor for creating, saving, and exporting process diagrams.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any modern web browser",
+      "isAccessibleForFree": true,
+      "author": {
+        "@type": "Person",
+        "name": "@dev.mako",
+        "url": "https://github.com/devkyato"
+      },
+      "license": "https://opensource.org/license/mit"
+    }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -92,6 +130,7 @@
 
     <footer class="statusbar">
       <span id="status-text" aria-live="polite">Ready</span>
+      <a class="maintainer-link" href="https://github.com/devkyato" target="_blank" rel="noreferrer" title="Built and maintained by @dev.mako">by @dev.mako</a>
       <span id="selection-status">0 selected</span>
       <span id="canvas-size-status">2400 × 1600</span>
     </footer>

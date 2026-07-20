@@ -1,0 +1,9 @@
+/* TEAM */
+Creator and maintainer: @dev.mako
+GitHub: https://github.com/devkyato
+
+/* SITE */
+Product: Flowchart Creator
+Built with: HTML, CSS, vanilla JavaScript, and SVG
+Data policy: Local-first; no analytics or remote storage
+Last update: 2026-07-20

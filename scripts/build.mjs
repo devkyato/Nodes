@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,5 +11,6 @@ if (dirname(output) !== root) throw new Error("Refusing to build outside the pro
 await rm(output, { recursive: true, force: true });
 await mkdir(output);
 await Promise.all(files.map((file) => copyFile(join(root, file), join(output, file))));
+await cp(join(root, "public"), output, { recursive: true });
 
-console.log(`Built ${files.length} static files in dist/`);
+console.log(`Built the static application and discovery assets in dist/`);

@@ -11,21 +11,23 @@ const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascrip
 const server = createServer(async (request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
   const relative = pathname === "/" ? "index.html" : pathname.slice(1);
-  const filePath = normalize(join(root, relative));
+  const candidates = [normalize(join(root, relative)), normalize(join(root, "public", relative))];
 
-  if (!filePath.startsWith(root)) {
+  if (candidates.some((filePath) => !filePath.startsWith(root))) {
     response.writeHead(403).end("Forbidden");
     return;
   }
 
-  try {
-    const details = await stat(filePath);
-    if (!details.isFile()) throw new Error("Not a file");
-    response.writeHead(200, { "Content-Type": `${types[extname(filePath)] || "application/octet-stream"}; charset=utf-8`, "Cache-Control": "no-store" });
-    createReadStream(filePath).pipe(response);
-  } catch {
-    response.writeHead(404).end("Not found");
+  for (const filePath of candidates) {
+    try {
+      const details = await stat(filePath);
+      if (!details.isFile()) continue;
+      response.writeHead(200, { "Content-Type": `${types[extname(filePath)] || "application/octet-stream"}; charset=utf-8`, "Cache-Control": "no-store" });
+      createReadStream(filePath).pipe(response);
+      return;
+    } catch {}
   }
+  response.writeHead(404).end("Not found");
 });
 
 server.listen(port, "127.0.0.1", () => {
