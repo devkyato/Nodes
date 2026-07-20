@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
     "check": "node --check script.js",
     "test": "node --check script.js && node tests/browser-smoke.mjs"
   },
