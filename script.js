@@ -7,6 +7,13 @@
   const STORAGE_KEY = "flowchart-creator-project-v1";
   const DRAFT_KEY = "flowchart-creator-draft-v1";
   const THEME_KEY = "flowchart-creator-theme";
+  const SETTINGS_KEY = "flowchart-creator-settings-v1";
+  const DEFAULT_SETTINGS = Object.freeze({
+    autosave: true,
+    reduceMotion: false,
+    defaultConnector: "straight",
+    defaultArrow: "arrow"
+  });
   const DEFAULT_NODE_STYLE = Object.freeze({
     fill: "#ffffff",
     stroke: "#475569",
@@ -66,15 +73,32 @@
     editor: document.querySelector("#inline-editor"),
     fileInput: document.querySelector("#file-input"),
     theme: document.querySelector("#theme-toggle"),
+    themeIcon: document.querySelector("#theme-icon"),
+    themeLabel: document.querySelector("#theme-label"),
+    clearConfirm: document.querySelector("[data-confirm-clear]"),
+    contextToolbar: document.querySelector("#context-toolbar"),
+    shapeSearch: document.querySelector("#shape-search"),
+    grid: document.querySelector(".grid"),
+    settingsGrid: document.querySelector("#settings-grid-toggle"),
+    settingsSnap: document.querySelector("#settings-snap-toggle"),
+    autosave: document.querySelector("#autosave-toggle"),
+    reduceMotion: document.querySelector("#reduced-motion-toggle"),
+    defaultConnector: document.querySelector("#default-connector"),
+    defaultArrow: document.querySelector("#default-arrow"),
+    commandSearch: document.querySelector("#command-search"),
+    commandList: document.querySelector("#command-list"),
+    toastRegion: document.querySelector("#toast-region"),
     themeColor: document.querySelector("#theme-color")
   };
 
+  let preferences = loadPreferences();
   let state = createInitialState();
   let interaction = null;
   let spacePressed = false;
   let clipboard = null;
   let editing = null;
   let nudgePending = false;
+  let commandCursor = -1;
 
   function uid(prefix = "item") {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -84,11 +108,20 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function loadPreferences() {
+    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; }
+    catch { return { ...DEFAULT_SETTINGS }; }
+  }
+
+  function persistPreferences() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(preferences)); } catch {}
+  }
+
   function createNode(type, x, y, text = SHAPES.find(([key]) => key === type)?.[1] || "Text") {
     const [width, height] = DEFAULT_SIZES[type] || DEFAULT_SIZES.process;
     return {
       id: uid("node"), type, x, y, width, height, rotation: 0, text,
-      style: clone(DEFAULT_NODE_STYLE), zIndex: 0, groupId: null
+      style: clone(DEFAULT_NODE_STYLE), zIndex: 0, groupId: null, locked: false
     };
   }
 
@@ -96,7 +129,7 @@
     const next = {
       documentTitle: "Untitled Flowchart",
       nodes: [], edges: [], selectedIds: [], zoom: 0.82, pan: { x: 160, y: 38 },
-      mode: "select", snap: true, history: [], historyIndex: -1
+      mode: "select", snap: true, showGrid: true, history: [], historyIndex: -1
     };
     const labels = [
       ["terminator", "START"],
@@ -132,7 +165,8 @@
       edges: source.edges,
       zoom: source.zoom,
       pan: source.pan,
-      snap: source.snap
+      snap: source.snap,
+      showGrid: source.showGrid !== false
     });
   }
 
@@ -255,7 +289,7 @@
 
   function renderNodeInto(node, parent) {
     const group = svgEl("g", {
-      class: "node", "data-node-id": node.id,
+      class: `node${node.locked ? " locked" : ""}`, "data-node-id": node.id, "data-locked": String(Boolean(node.locked)),
       transform: `translate(${node.x} ${node.y}) rotate(${node.rotation || 0} ${node.width / 2} ${node.height / 2})`
     });
     if (node.type !== "text") geometryElements(node).forEach((element) => group.append(element));
@@ -345,8 +379,11 @@
     refs.zoom.textContent = `${Math.round(state.zoom * 100)}%`;
     refs.selectionStatus.textContent = `${state.selectedIds.length} selected`;
     refs.shell.dataset.mode = state.mode;
+    refs.grid.hidden = state.showGrid === false;
     renderProperties();
+    renderContextToolbar();
     updateToolbar();
+    syncSettingsControls();
   }
 
   function renderOverlays() {
@@ -385,7 +422,7 @@
     refs.overlayLayer.append(svgEl("rect", {
       class: "selection-outline", x: node.x - 3, y: node.y - 3, width: node.width + 6, height: node.height + 6, rx: 2
     }));
-    if (state.selectedIds.length === 1) {
+    if (state.selectedIds.length === 1 && !node.locked) {
       const handles = {
         nw: [node.x, node.y], n: [node.x + node.width / 2, node.y], ne: [node.x + node.width, node.y],
         e: [node.x + node.width, node.y + node.height / 2], se: [node.x + node.width, node.y + node.height],
@@ -395,7 +432,22 @@
         class: "resize-handle", "data-resize-id": node.id, "data-handle": handle, x: cx - 4, y: cy - 4, width: 8, height: 8
       })));
     }
-    renderPorts(node);
+    if (!node.locked) renderPorts(node);
+  }
+
+  function renderContextToolbar() {
+    const node = selectedNodes()[0];
+    const visible = state.selectedIds.length === 1 && Boolean(node) && state.mode === "select" && !editing;
+    refs.contextToolbar.hidden = !visible;
+    if (!visible) return;
+    const screen = worldToScreen(node.x + node.width / 2, node.y);
+    const shellRect = refs.shell.getBoundingClientRect();
+    refs.contextToolbar.style.left = `${screen.x - shellRect.left}px`;
+    refs.contextToolbar.style.top = `${Math.max(8, screen.y - shellRect.top - 11)}px`;
+    const lock = refs.contextToolbar.querySelector('[data-context-action="lock"]');
+    lock.innerHTML = `${node.locked ? "◆" : "♢"} <span>${node.locked ? "Unlock" : "Lock"}</span>`;
+    lock.title = node.locked ? "Unlock shape" : "Lock shape";
+    refs.contextToolbar.querySelector('[data-context-action="edit"]').disabled = node.locked;
   }
 
   function renderPorts(node) {
@@ -506,8 +558,9 @@
     } else if (nodeElement) {
       const nodeId = nodeElement.dataset.nodeId;
       selectNode(nodeId, event.shiftKey);
-      const initial = new Map(state.nodes.filter((node) => state.selectedIds.includes(node.id)).map((node) => [node.id, { x: node.x, y: node.y }]));
-      interaction = { type: "move", startWorld: world, initial, changed: false };
+      const initial = new Map(state.nodes.filter((node) => state.selectedIds.includes(node.id) && !node.locked).map((node) => [node.id, { x: node.x, y: node.y }]));
+      interaction = initial.size ? { type: "move", startWorld: world, initial, changed: false } : null;
+      if (!initial.size) setStatus("Shape locked — use the quick toolbar to unlock");
       render();
     } else if (edgeElement) {
       const edgeId = edgeElement.dataset.edgeId;
@@ -616,7 +669,8 @@
     if (!target) { setStatus("Connector cancelled"); return; }
     const edge = {
       id: uid("edge"), fromNodeId: active.nodeId, fromPort: active.port,
-      toNodeId: target.nodeId, toPort: target.port, type: "straight", label: "", style: clone(DEFAULT_EDGE_STYLE)
+      toNodeId: target.nodeId, toPort: target.port, type: preferences.defaultConnector, label: "",
+      style: { ...clone(DEFAULT_EDGE_STYLE), endArrow: preferences.defaultArrow }
     };
     state.edges.push(edge);
     state.selectedIds = [edge.id];
@@ -642,6 +696,7 @@
   function applyViewport() {
     refs.viewport.setAttribute("transform", `translate(${state.pan.x} ${state.pan.y}) scale(${state.zoom})`);
     refs.zoom.textContent = `${Math.round(state.zoom * 100)}%`;
+    renderContextToolbar();
   }
 
   function zoomAt(factor, clientX, clientY) {
@@ -680,6 +735,7 @@
     finishTextEditing(true);
     const item = kind === "node" ? state.nodes.find((node) => node.id === id) : state.edges.find((edge) => edge.id === id);
     if (!item) return;
+    if (kind === "node" && item.locked) { setStatus("Unlock this shape before editing"); return; }
     editing = { kind, id, original: item.text ?? item.label ?? "", cancelled: false };
     let box;
     let style = DEFAULT_NODE_STYLE;
@@ -721,10 +777,15 @@
 
   function deleteSelection() {
     if (!state.selectedIds.length) return;
-    const nodeIds = new Set(selectedNodes().map((node) => node.id));
+    const lockedIds = new Set(selectedNodes().filter((node) => node.locked).map((node) => node.id));
+    const nodeIds = new Set(selectedNodes().filter((node) => !node.locked).map((node) => node.id));
+    const deletableSelection = state.selectedIds.filter((id) => !lockedIds.has(id));
+    if (!nodeIds.size && !deletableSelection.some((id) => state.edges.some((edge) => edge.id === id))) {
+      setStatus("Locked shapes stay protected"); return;
+    }
     state.nodes = state.nodes.filter((node) => !nodeIds.has(node.id));
-    state.edges = state.edges.filter((edge) => !state.selectedIds.includes(edge.id) && !nodeIds.has(edge.fromNodeId) && !nodeIds.has(edge.toNodeId));
-    state.selectedIds = [];
+    state.edges = state.edges.filter((edge) => !deletableSelection.includes(edge.id) && !nodeIds.has(edge.fromNodeId) && !nodeIds.has(edge.toNodeId));
+    state.selectedIds = [...lockedIds];
     commit("Deleted selection");
     render();
   }
@@ -766,7 +827,7 @@
   function duplicateSelection() { copySelection(); pasteSelection(); }
 
   function moveSelection(dx, dy) {
-    const nodes = selectedNodes();
+    const nodes = selectedNodes().filter((node) => !node.locked);
     if (!nodes.length) return;
     nodes.forEach((node) => {
       node.x = clamp(node.x + dx, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
@@ -860,6 +921,7 @@
   function handlePropertyChange(event) {
     const node = selectedNodes()[0];
     const edge = selectedEdges()[0];
+    if (node?.locked) { setStatus("Unlock this shape before changing it"); render(); return; }
     if (event.target.dataset.prop && node) {
       const key = event.target.dataset.prop;
       node.style[key] = event.target.type === "number" ? Number(event.target.value) : event.target.value;
@@ -895,7 +957,7 @@
   }
 
   function arrangeSelection(kind) {
-    const nodes = selectedNodes();
+    const nodes = selectedNodes().filter((node) => !node.locked);
     if (nodes.length < 2) return;
     const minX = Math.min(...nodes.map((node) => node.x));
     const maxX = Math.max(...nodes.map((node) => node.x + node.width));
@@ -928,15 +990,15 @@
     if (action === "delete") return deleteSelection();
     if (action === "duplicate") return duplicateSelection();
     if (action === "group") {
-      const groupId = uid("group"); selectedNodes().forEach((node) => { node.groupId = groupId; }); commit("Grouped selection"); render(); return;
+      const groupId = uid("group"); selectedNodes().filter((node) => !node.locked).forEach((node) => { node.groupId = groupId; }); commit("Grouped selection"); render(); return;
     }
-    if (action === "ungroup") { selectedNodes().forEach((node) => { node.groupId = null; }); commit("Ungrouped selection"); render(); return; }
+    if (action === "ungroup") { selectedNodes().filter((node) => !node.locked).forEach((node) => { node.groupId = null; }); commit("Ungrouped selection"); render(); return; }
     changeLayer(action);
   }
 
   function changeLayer(action) {
     const node = selectedNodes()[0];
-    if (!node) return;
+    if (!node || node.locked) { if (node?.locked) setStatus("Unlock this shape before reordering it"); return; }
     const sorted = [...state.nodes].sort((a, b) => a.zIndex - b.zIndex);
     const index = sorted.findIndex((item) => item.id === node.id);
     if (action === "front") sorted.splice(index, 1), sorted.push(node);
@@ -950,7 +1012,7 @@
   function projectData() {
     return {
       version: 1, documentTitle: state.documentTitle, canvas: clone(CANVAS), nodes: clone(state.nodes),
-      edges: clone(state.edges), zoom: state.zoom, pan: clone(state.pan), snap: state.snap
+      edges: clone(state.edges), zoom: state.zoom, pan: clone(state.pan), snap: state.snap, showGrid: state.showGrid !== false
     };
   }
 
@@ -960,7 +1022,8 @@
       documentTitle: String(data.documentTitle || "Untitled Flowchart"),
       nodes: data.nodes.map((node, index) => ({ ...createNode(node.type || "process", 0, 0, ""), ...node, style: { ...DEFAULT_NODE_STYLE, ...(node.style || {}) }, zIndex: Number(node.zIndex ?? index) })),
       edges: data.edges.map((edge) => ({ ...edge, id: edge.id || uid("edge"), type: edge.type || "straight", label: edge.label || "", style: { ...DEFAULT_EDGE_STYLE, ...(edge.style || {}) } })),
-      zoom: clamp(Number(data.zoom) || 1, .2, 3), pan: { x: Number(data.pan?.x) || 0, y: Number(data.pan?.y) || 0 }, snap: data.snap !== false
+      zoom: clamp(Number(data.zoom) || 1, .2, 3), pan: { x: Number(data.pan?.x) || 0, y: Number(data.pan?.y) || 0 }, snap: data.snap !== false,
+      showGrid: data.showGrid !== false
     };
   }
 
@@ -973,6 +1036,7 @@
   }
 
   function persistLocal() {
+    if (!preferences.autosave) return;
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(projectData())); } catch {}
   }
 
@@ -980,12 +1044,14 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData())); } catch {}
     persistLocal();
     setStatus("Saved safely in this browser ✓");
+    showToast("Checkpoint saved locally", "success");
   }
 
   function loadLocal() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) { setStatus("No saved project in this browser"); return; }
-    try { loadProject(JSON.parse(raw), "Loaded saved project"); } catch { setStatus("The saved project could not be loaded"); }
+    try { loadProject(JSON.parse(raw), "Loaded saved project"); showToast("Checkpoint restored", "success"); }
+    catch { setStatus("The saved project could not be loaded"); showToast("Could not load that checkpoint", "error"); }
   }
 
   function safeFileName(extension) {
@@ -1020,14 +1086,14 @@
     const viewport = documentNode.createElement("viewport");
     Object.entries({
       width: CANVAS.width, height: CANVAS.height, zoom: state.zoom,
-      "pan-x": state.pan.x, "pan-y": state.pan.y, snap: state.snap
+      "pan-x": state.pan.x, "pan-y": state.pan.y, snap: state.snap, grid: state.showGrid !== false
     }).forEach(([name, value]) => viewport.setAttribute(name, String(value)));
     root.append(viewport);
 
     const nodes = documentNode.createElement("nodes");
     state.nodes.forEach((node) => {
       const item = documentNode.createElement("node");
-      ["id", "type", "x", "y", "width", "height", "rotation", "zIndex", "groupId"].forEach((name) => {
+      ["id", "type", "x", "y", "width", "height", "rotation", "zIndex", "groupId", "locked"].forEach((name) => {
         if (node[name] !== null && node[name] !== undefined) item.setAttribute(name, String(node[name]));
       });
       const text = documentNode.createElement("text");
@@ -1079,7 +1145,8 @@
       text: item.querySelector("text")?.textContent || "",
       style: styleFrom(item.querySelector("style"), DEFAULT_NODE_STYLE),
       zIndex: number(item.getAttribute("zIndex"), index),
-      groupId: item.getAttribute("groupId") || null
+      groupId: item.getAttribute("groupId") || null,
+      locked: item.getAttribute("locked") === "true"
     }));
     const edges = Array.from(documentNode.querySelectorAll("edges > edge")).map((item) => ({
       id: item.getAttribute("id") || uid("edge"),
@@ -1097,7 +1164,8 @@
       nodes, edges,
       zoom: number(viewport?.getAttribute("zoom"), 1),
       pan: { x: number(viewport?.getAttribute("pan-x")), y: number(viewport?.getAttribute("pan-y")) },
-      snap: viewport?.getAttribute("snap") !== "false"
+      snap: viewport?.getAttribute("snap") !== "false",
+      showGrid: viewport?.getAttribute("grid") !== "false"
     };
   }
 
@@ -1168,29 +1236,61 @@
       delete: !state.selectedIds.length, duplicate: !selectedNodes().length
     };
     Object.entries(disabled).forEach(([action, value]) => {
-      const button = document.querySelector(`[data-action="${action}"]`);
-      if (button) button.disabled = value;
+      document.querySelectorAll(`[data-action="${action}"]`).forEach((button) => { button.disabled = value; });
     });
+    document.querySelectorAll('[data-view-action="grid"]').forEach((button) => button.setAttribute("aria-checked", String(state.showGrid !== false)));
+    document.querySelectorAll('[data-view-action="snap"]').forEach((button) => button.setAttribute("aria-checked", String(state.snap)));
   }
 
   function setStatus(message) { refs.status.textContent = message; }
 
+  function showToast(message, tone = "neutral") {
+    const toast = document.createElement("div");
+    toast.className = `toast-message alert ${tone === "success" ? "alert-success" : tone === "error" ? "alert-error" : "alert-soft"}`;
+    toast.innerHTML = `<span class="toast-dot" aria-hidden="true"></span><span>${escapeHtml(message)}</span>`;
+    refs.toastRegion.append(toast);
+    requestAnimationFrame(() => toast.classList.add("visible"));
+    setTimeout(() => { toast.classList.remove("visible"); setTimeout(() => toast.remove(), 180); }, 2600);
+  }
+
   function applyTheme(theme, persist = true) {
-    const next = theme === "dark" ? "dark" : "light";
+    const preference = ["light", "dark", "system"].includes(theme) ? theme : "system";
+    const next = preference === "system" ? (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
+    const labels = { light: ["☀", "Light"], dark: ["◒", "Dark"], system: ["◐", "System"] };
     document.documentElement.dataset.theme = next;
-    refs.theme.innerHTML = next === "dark" ? "☀️ <span>Light</span>" : "🌙 <span>Dark</span>";
-    refs.theme.setAttribute("aria-label", `Switch to ${next === "dark" ? "light" : "dark"} mode`);
-    refs.theme.title = `Switch to ${next === "dark" ? "light" : "dark"} mode`;
-    refs.themeColor.content = next === "dark" ? "#171b21" : "#f7f8fa";
+    document.documentElement.dataset.themePreference = preference;
+    refs.themeIcon.textContent = labels[preference][0];
+    refs.themeLabel.textContent = labels[preference][1];
+    refs.theme.setAttribute("aria-label", `Appearance: ${labels[preference][1]}`);
+    document.querySelectorAll("[data-theme-value]").forEach((option) => option.setAttribute("aria-checked", String(option.dataset.themeValue === preference)));
+    document.querySelectorAll(".theme-card[data-theme-value]").forEach((option) => option.setAttribute("aria-checked", String(option.dataset.themeValue === preference)));
+    refs.themeColor.content = next === "dark" ? "#0e1013" : "#fbfbfc";
     if (persist) {
-      try { localStorage.setItem(THEME_KEY, next); } catch {}
+      try { localStorage.setItem(THEME_KEY, preference); } catch {}
     }
   }
 
   function initTheme() {
     let saved = null;
     try { saved = localStorage.getItem(THEME_KEY); } catch {}
-    applyTheme(saved || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"), false);
+    applyTheme(saved || "system", false);
+    window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => {
+      if (document.documentElement.dataset.themePreference === "system") applyTheme("system", false);
+    });
+  }
+
+  function applyPreferences() {
+    document.documentElement.dataset.reduceMotion = String(Boolean(preferences.reduceMotion));
+    syncSettingsControls();
+  }
+
+  function syncSettingsControls() {
+    refs.settingsGrid.checked = state.showGrid !== false;
+    refs.settingsSnap.checked = state.snap;
+    refs.autosave.checked = preferences.autosave;
+    refs.reduceMotion.checked = preferences.reduceMotion;
+    refs.defaultConnector.value = preferences.defaultConnector;
+    refs.defaultArrow.value = preferences.defaultArrow;
   }
 
   function toggleTheme() {
@@ -1199,17 +1299,130 @@
     setStatus(`${next === "dark" ? "Dark" : "Light"} mode is on ${next === "dark" ? "🌙" : "☀️"}`);
   }
 
+  function toggleSelectedLock() {
+    const nodes = selectedNodes();
+    if (!nodes.length) return;
+    const shouldLock = !nodes.every((node) => node.locked);
+    nodes.forEach((node) => { node.locked = shouldLock; });
+    commit(shouldLock ? "Locked selection" : "Unlocked selection");
+    showToast(shouldLock ? "Shape locked" : "Shape unlocked", "success");
+    render();
+  }
+
+  function handleViewAction(action) {
+    if (action === "grid") {
+      state.showGrid = state.showGrid === false;
+      commit(state.showGrid ? "Grid shown" : "Grid hidden");
+    } else if (action === "snap") {
+      state.snap = !state.snap;
+      refs.snap.checked = state.snap;
+      commit(state.snap ? "Snap enabled" : "Snap disabled");
+    }
+    render();
+  }
+
+  function handleContextAction(action) {
+    const node = selectedNodes()[0];
+    if (!node || state.selectedIds.length !== 1) return;
+    if (action === "edit") beginTextEditing("node", node.id);
+    else if (action === "duplicate") duplicateSelection();
+    else if (action === "lock") toggleSelectedLock();
+    else if (action === "delete") deleteSelection();
+  }
+
+  function closeMenus(except = null) {
+    document.querySelectorAll(".toolbar .dropdown-menu").forEach((menu) => {
+      if (menu === except) return;
+      menu.classList.add("hidden");
+      menu.closest(".dropdown")?.classList.remove("menu-open");
+      const toggle = menu.previousElementSibling;
+      if (toggle?.matches(".dropdown-toggle")) toggle.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function toggleMenu(toggle) {
+    const menu = toggle.nextElementSibling;
+    if (!menu?.matches(".dropdown-menu")) return;
+    const willOpen = menu.classList.contains("hidden");
+    closeMenus(menu);
+    menu.classList.toggle("hidden", !willOpen);
+    menu.closest(".dropdown")?.classList.toggle("menu-open", willOpen);
+    toggle.setAttribute("aria-expanded", String(willOpen));
+  }
+
+  function setOverlay(selector, open) {
+    const overlay = document.querySelector(selector);
+    if (!overlay) return;
+    overlay.classList.toggle("hidden", !open);
+    overlay.classList.toggle("overlay-open", open);
+    document.querySelectorAll(`[data-overlay="${selector}"]`).forEach((button) => button.setAttribute("aria-expanded", String(open)));
+    if (open && selector === "#settings-modal") syncSettingsControls();
+    if (open && selector === "#command-modal") {
+      refs.commandSearch.value = "";
+      filterCommands();
+    }
+    if (open) requestAnimationFrame(() => (selector === "#command-modal" ? refs.commandSearch : overlay.querySelector("button, input, [tabindex='0']"))?.focus({ preventScroll: true }));
+  }
+
+  function closeOverlays() {
+    document.querySelectorAll(".overlay:not(.hidden)").forEach((overlay) => setOverlay(`#${overlay.id}`, false));
+  }
+
+  function selectSettingsTab(name) {
+    document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
+      const active = tab.dataset.settingsTab === name;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+    document.querySelectorAll("[data-settings-panel]").forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
+  }
+
+  function updatePreference(key, value, message) {
+    preferences[key] = value;
+    persistPreferences();
+    applyPreferences();
+    setStatus(message);
+    showToast(message, "success");
+  }
+
+  function filterCommands() {
+    const query = refs.commandSearch.value.trim().toLowerCase();
+    refs.commandList.querySelectorAll("button").forEach((button) => { button.hidden = Boolean(query) && !button.textContent.toLowerCase().includes(query); });
+    commandCursor = -1;
+  }
+
+  function visibleCommands() { return [...refs.commandList.querySelectorAll("button:not([hidden])")]; }
+
+  function focusCommand(direction) {
+    const commands = visibleCommands();
+    if (!commands.length) return;
+    commandCursor = (commandCursor + direction + commands.length) % commands.length;
+    commands.forEach((button, index) => button.classList.toggle("command-active", index === commandCursor));
+    commands[commandCursor].focus({ preventScroll: true });
+  }
+
+  function runCommand(button) {
+    if (!button) return;
+    setOverlay("#command-modal", false);
+    if (button.dataset.commandAction) handleToolbar(button.dataset.commandAction);
+    else if (button.dataset.commandMode) setMode(button.dataset.commandMode);
+    else if (button.hasAttribute("data-command-settings")) setOverlay("#settings-modal", true);
+  }
+
   function onKeyDown(event) {
     const typing = /INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
+    if (event.key === "Escape") { closeMenus(); closeOverlays(); }
+    const command = event.ctrlKey || event.metaKey;
+    if (command && event.key.toLowerCase() === "k") { event.preventDefault(); closeOverlays(); setOverlay("#command-modal", true); return; }
     if (event.code === "Space" && !typing) { spacePressed = true; event.preventDefault(); }
     if (typing) return;
-    const command = event.ctrlKey || event.metaKey;
     if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
     else if (command && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); }
     else if (command && event.key.toLowerCase() === "d") { event.preventDefault(); duplicateSelection(); }
     else if (command && event.key.toLowerCase() === "c") { event.preventDefault(); copySelection(); }
     else if (command && event.key.toLowerCase() === "v") { event.preventDefault(); pasteSelection(); }
     else if (command && event.key.toLowerCase() === "s") { event.preventDefault(); saveLocal(); }
+    else if (event.key === "Enter" && state.selectedIds.length === 1 && selectedNodes().length === 1) { event.preventDefault(); beginTextEditing("node", selectedNodes()[0].id); }
     else if (["Delete", "Backspace"].includes(event.key)) { event.preventDefault(); deleteSelection(); }
     else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
       event.preventDefault();
@@ -1227,10 +1440,82 @@
 
   function bindEvents() {
     document.querySelector(".toolbar").addEventListener("click", (event) => {
+      const toggle = event.target.closest(".dropdown-toggle");
+      if (!toggle) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      toggleMenu(toggle);
+    }, true);
+    document.querySelector(".toolbar").addEventListener("click", (event) => {
       const mode = event.target.closest("[data-mode]");
       const action = event.target.closest("[data-action]");
+      const themeChoice = event.target.closest("[data-theme-value]");
+      const arrange = event.target.closest("[data-arrange]");
+      const panelAction = event.target.closest("[data-panel-action]");
+      const viewAction = event.target.closest("[data-view-action]");
       if (mode) setMode(mode.dataset.mode);
       if (action) handleToolbar(action.dataset.action);
+      if (arrange) arrangeSelection(arrange.dataset.arrange);
+      if (panelAction) handlePanelAction(panelAction.dataset.panelAction);
+      if (viewAction) handleViewAction(viewAction.dataset.viewAction);
+      if (themeChoice) {
+        applyTheme(themeChoice.dataset.themeValue);
+        setStatus(`${themeChoice.textContent.replace("✓", "").trim()} appearance selected`);
+      }
+      if (event.target.closest(".dropdown-menu button")) closeMenus();
+    });
+    document.addEventListener("click", (event) => { if (!event.target.closest(".toolbar .dropdown")) closeMenus(); });
+    document.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-overlay]");
+      if (!trigger) return;
+      const selector = trigger.dataset.overlay;
+      const overlay = document.querySelector(selector);
+      if (!overlay) return;
+      event.preventDefault();
+      setOverlay(selector, overlay.classList.contains("hidden"));
+    });
+    document.querySelectorAll(".overlay").forEach((overlay) => overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) setOverlay(`#${overlay.id}`, false);
+    }));
+    document.querySelector("#settings-modal").addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-settings-tab]");
+      const themeChoice = event.target.closest("[data-theme-value]");
+      const action = event.target.closest("[data-settings-action]");
+      if (tab) selectSettingsTab(tab.dataset.settingsTab);
+      if (themeChoice) {
+        applyTheme(themeChoice.dataset.themeValue);
+        setStatus(`${themeChoice.textContent.trim()} appearance selected`);
+        showToast("Appearance updated", "success");
+      }
+      if (action?.dataset.settingsAction === "fit") fitToScreen();
+    });
+    refs.settingsGrid.addEventListener("change", () => {
+      state.showGrid = refs.settingsGrid.checked;
+      commit(state.showGrid ? "Grid shown" : "Grid hidden");
+      render();
+    });
+    refs.settingsSnap.addEventListener("change", () => {
+      state.snap = refs.settingsSnap.checked;
+      refs.snap.checked = state.snap;
+      commit(state.snap ? "Snap enabled" : "Snap disabled");
+      render();
+    });
+    refs.autosave.addEventListener("change", () => updatePreference("autosave", refs.autosave.checked, refs.autosave.checked ? "Automatic drafts enabled" : "Automatic drafts paused"));
+    refs.reduceMotion.addEventListener("change", () => updatePreference("reduceMotion", refs.reduceMotion.checked, refs.reduceMotion.checked ? "Motion reduced" : "Premium motion enabled"));
+    refs.defaultConnector.addEventListener("change", () => updatePreference("defaultConnector", refs.defaultConnector.value, `${refs.defaultConnector.options[refs.defaultConnector.selectedIndex].text} connectors selected`));
+    refs.defaultArrow.addEventListener("change", () => updatePreference("defaultArrow", refs.defaultArrow.value, `${refs.defaultArrow.options[refs.defaultArrow.selectedIndex].text} connector ends selected`));
+    refs.commandSearch.addEventListener("input", filterCommands);
+    refs.commandSearch.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") { event.preventDefault(); focusCommand(1); }
+      else if (event.key === "ArrowUp") { event.preventDefault(); focusCommand(-1); }
+      else if (event.key === "Enter") { event.preventDefault(); runCommand(visibleCommands()[Math.max(0, commandCursor)]); }
+    });
+    refs.commandList.addEventListener("click", (event) => runCommand(event.target.closest("button")));
+    refs.commandList.addEventListener("keydown", (event) => {
+      if (["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) event.stopPropagation();
+      if (event.key === "ArrowDown") { event.preventDefault(); focusCommand(1); }
+      else if (event.key === "ArrowUp") { event.preventDefault(); focusCommand(-1); }
+      else if (event.key === "Enter") runCommand(event.target.closest("button"));
     });
     refs.shapeList.addEventListener("click", (event) => {
       const item = event.target.closest("[data-shape]");
@@ -1242,6 +1527,16 @@
     refs.shapeList.addEventListener("dragstart", (event) => {
       const item = event.target.closest("[data-shape]");
       if (item) event.dataTransfer.setData("text/x-flowchart-shape", item.dataset.shape);
+    });
+    refs.shapeSearch.addEventListener("input", () => {
+      const query = refs.shapeSearch.value.trim().toLowerCase();
+      refs.shapeList.querySelectorAll("[data-shape]").forEach((item) => {
+        item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query);
+      });
+    });
+    refs.contextToolbar.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-context-action]");
+      if (action) handleContextAction(action.dataset.contextAction);
     });
     refs.svg.addEventListener("dragover", (event) => { if (event.dataTransfer.types.includes("text/x-flowchart-shape")) event.preventDefault(); });
     refs.svg.addEventListener("drop", (event) => { const type = event.dataTransfer.getData("text/x-flowchart-shape"); if (type) { event.preventDefault(); addNode(type, screenToWorld(event.clientX, event.clientY)); } });
@@ -1272,6 +1567,7 @@
     refs.propertiesContent.addEventListener("click", handlePropertiesClick);
     refs.title.addEventListener("change", () => { state.documentTitle = refs.title.value.trim() || "Untitled Flowchart"; refs.title.value = state.documentTitle; commit("Renamed document"); });
     refs.snap.addEventListener("change", () => { state.snap = refs.snap.checked; commit(state.snap ? "Snap enabled" : "Snap disabled"); render(); });
+    refs.clearConfirm.addEventListener("click", clearCanvas);
     refs.fileInput.addEventListener("change", async () => {
       const file = refs.fileInput.files[0]; refs.fileInput.value = "";
       if (!file) return;
@@ -1292,6 +1588,7 @@
   }
 
   initTheme();
+  applyPreferences();
   createShapePalette();
   bindEvents();
   refs.title.value = state.documentTitle;
