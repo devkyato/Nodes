@@ -72,7 +72,7 @@ Projects remain in the browser unless the user downloads or imports a file. The 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Usage help is in [SUPPORT.md](SUPPORT.md), and security reports should follow [SECURITY.md](SECURITY.md).
 
 ## License
 
