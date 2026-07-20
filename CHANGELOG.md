@@ -4,6 +4,12 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-20
+
+### Fixed
+
+- Published manifest, sitemap, robots policy, humans file, and social preview from the GitHub Pages site root.
+
 ## [1.1.0] - 2026-07-20
 
 ### Added
@@ -31,6 +37,7 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 - Dependency-free packaging and browser workflow tests.
 - Automated CI, GitHub Pages deployment, and tag-based GitHub releases.
 
-[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/devkyato/Nodes/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/devkyato/Nodes/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/devkyato/Nodes/releases/tag/v1.0.0
