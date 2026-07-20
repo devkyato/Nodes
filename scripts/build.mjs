@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = resolve(root, "dist");
-const files = ["index.html", "flyon.css", "style.css", "script.js", "humans.txt", "og.png", "robots.txt", "site.webmanifest", "sitemap.xml"];
+const files = ["index.html", "editor.html", "home.js", "flyon.css", "style.css", "script.js", "humans.txt", "og.png", "robots.txt", "site.webmanifest", "sitemap.xml", "vercel.json"];
 
 if (dirname(output) !== root) throw new Error("Refusing to build outside the project root");
 

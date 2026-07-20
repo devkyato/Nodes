@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create, connect, edit, save, and export polished flowcharts in a fast, private, dependency-free SVG editor by @dev.mako.">
+  <meta name="author" content="@dev.mako (devkyato)">
+  <meta name="keywords" content="flowchart creator, flowchart maker, diagram editor, SVG flowchart, process diagram, free flowchart tool, browser diagram editor">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta id="theme-color" name="theme-color" content="#f7f8fa">
+  <meta name="application-name" content="Flowchart Creator">
+  <link rel="canonical" href="https://nodesss.xyz/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flowchart Creator">
+  <meta property="og:title" content="Flowchart Creator by @dev.mako">
+  <meta property="og:description" content="A fast, private SVG flowchart editor with real symbols, attached connectors, direct text editing, and clean exports.">
+  <meta property="og:url" content="https://nodesss.xyz/">
+  <meta property="og:image" content="https://nodesss.xyz/og.png">
+  <meta property="og:image:width" content="1728">
+  <meta property="og:image:height" content="909">
+  <meta property="og:image:alt" content="Flowchart Creator by @dev.mako with a compact editable process diagram">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flowchart Creator by @dev.mako">
+  <meta name="twitter:description" content="A compact, private SVG flowchart editor that runs entirely in your browser.">
+  <meta name="twitter:image" content="https://nodesss.xyz/og.png">
+  <title>Editor · Nodes</title>
+  <link rel="icon" href="data:,">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="stylesheet" href="flyon.css">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (() => {
+      const preference = localStorage.getItem("flowchart-creator-theme") || "system";
+      const theme = preference === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : preference;
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.themePreference = preference;
+    })();
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Flowchart Creator",
+      "url": "https://nodesss.xyz/",
+      "description": "A compact, dependency-free SVG flowchart editor for creating, saving, and exporting process diagrams.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any modern web browser",
+      "isAccessibleForFree": true,
+      "author": {
+        "@type": "Person",
+        "name": "@dev.mako",
+        "url": "https://github.com/devkyato"
+      },
+      "license": "https://opensource.org/license/mit"
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar" aria-label="Editor toolbar">
+      <a class="brand-mark" href="./" aria-label="Back to your flowcharts" title="Back to your flowcharts">
+        <span class="brand-icon" aria-hidden="true">◇</span>
+        <span class="brand-word">nodes<span class="brand-cursor">_</span></span>
+        <span class="brand-badge">studio</span>
+      </a>
+      <input id="document-title" class="document-title input input-sm" value="Untitled Flowchart" aria-label="Document title" title="Name your flowchart">
+      <span class="toolbar-separator"></span>
+      <div class="tool-group" aria-label="History">
+        <button type="button" class="btn btn-sm btn-text btn-square" data-action="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+        <button type="button" class="btn btn-sm btn-text btn-square" data-action="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      </div>
+      <div class="tool-group tool-pills" aria-label="Tools">
+        <button type="button" class="tool-button btn btn-sm btn-soft active" data-mode="select" title="Select tool (V)">↖ Select</button>
+        <button type="button" class="tool-button btn btn-sm btn-text" data-mode="connect" title="Connector tool (C)">⤴ Connect</button>
+        <button type="button" class="tool-button btn btn-sm btn-text" data-mode="text" title="Text tool (T)">✎ Text</button>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="toolbar-actions" aria-label="Workspace actions">
+      <div class="dropdown relative inline-flex">
+        <button id="arrange-menu" type="button" class="dropdown-toggle btn btn-sm btn-text" aria-haspopup="menu" aria-controls="arrange-dropdown" aria-expanded="false">Arrange <span class="menu-caret">⌄</span></button>
+        <ul id="arrange-dropdown" class="dropdown-menu compact-menu dropdown-open:opacity-100 hidden min-w-56" role="menu" aria-orientation="vertical" aria-labelledby="arrange-menu">
+          <li class="dropdown-title">Align selection</li>
+          <li class="menu-grid menu-grid-3">
+            <button type="button" data-arrange="left" title="Align left">⇤</button>
+            <button type="button" data-arrange="center" title="Align center">↔</button>
+            <button type="button" data-arrange="right" title="Align right">⇥</button>
+            <button type="button" data-arrange="top" title="Align top">⤒</button>
+            <button type="button" data-arrange="middle" title="Align middle">↕</button>
+            <button type="button" data-arrange="bottom" title="Align bottom">⤓</button>
+          </li>
+          <li class="menu-divider"></li>
+          <li class="dropdown-title">Distribute & group</li>
+          <li class="menu-grid menu-grid-2">
+            <button type="button" data-arrange="horizontal">Horizontal</button>
+            <button type="button" data-arrange="vertical">Vertical</button>
+            <button type="button" data-panel-action="group">Group</button>
+            <button type="button" data-panel-action="ungroup">Ungroup</button>
+          </li>
+          <li class="menu-divider"></li>
+          <li class="menu-grid menu-grid-2">
+            <button type="button" data-panel-action="front">Bring front</button>
+            <button type="button" data-panel-action="forward">Forward</button>
+            <button type="button" data-panel-action="backward">Backward</button>
+            <button type="button" data-panel-action="back">Send back</button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="dropdown relative inline-flex [--auto-close:inside]">
+        <button id="view-menu" type="button" class="dropdown-toggle btn btn-sm btn-text" aria-haspopup="menu" aria-controls="view-dropdown" aria-expanded="false">View <span id="zoom-display">100%</span> <span class="menu-caret">⌄</span></button>
+        <ul id="view-dropdown" class="dropdown-menu compact-menu dropdown-open:opacity-100 hidden min-w-52" role="menu" aria-orientation="vertical" aria-labelledby="view-menu">
+          <li class="dropdown-title">Canvas</li>
+          <li class="zoom-strip">
+            <button type="button" data-action="zoom-out" title="Zoom out">−</button>
+            <button type="button" data-action="zoom-reset" title="Reset zoom">100%</button>
+            <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          </li>
+          <li><button type="button" class="dropdown-item compact-item" data-action="fit"><span>⊡</span><span><strong>Fit diagram</strong><small>Show the full flow</small></span></button></li>
+          <li class="menu-divider"></li>
+          <li><button type="button" class="dropdown-item compact-item view-choice" data-view-action="grid"><span>#</span><span>Grid</span><span class="view-check">✓</span></button></li>
+          <li><button type="button" class="dropdown-item compact-item view-choice" data-view-action="snap"><span>⌁</span><span>Snap to grid</span><span class="view-check">✓</span></button></li>
+        </ul>
+      </div>
+
+      <div class="dropdown relative inline-flex">
+        <button id="project-menu" type="button" class="dropdown-toggle btn btn-sm btn-text" aria-haspopup="menu" aria-controls="project-dropdown" aria-expanded="false">File <span class="menu-caret">⌄</span></button>
+        <ul id="project-dropdown" class="dropdown-menu dropdown-open:opacity-100 hidden min-w-64" role="menu" aria-orientation="vertical" aria-labelledby="project-menu">
+          <li class="dropdown-title">Your local workspace</li>
+          <li><button type="button" class="dropdown-item" data-action="save"><span>💾</span><span><strong>Save checkpoint</strong><small>Keep a named copy in this browser</small></span></button></li>
+          <li><button type="button" class="dropdown-item" data-action="load"><span>📂</span><span><strong>Load checkpoint</strong><small>Restore your last manual save</small></span></button></li>
+          <li class="menu-divider"></li>
+          <li><button type="button" class="dropdown-item" data-action="download-json"><span>{ }</span><span><strong>Download JSON</strong><small>Portable project source</small></span></button></li>
+          <li><button type="button" class="dropdown-item" data-action="download-xml"><span>&lt;/&gt;</span><span><strong>Download XML</strong><small>Structured interoperable project</small></span></button></li>
+          <li><button type="button" class="dropdown-item" data-action="import-project"><span>↥</span><span><strong>Import project</strong><small>Open JSON or XML</small></span></button></li>
+          <li class="menu-divider"></li>
+          <li class="dropdown-title">Export image</li>
+          <li><button type="button" class="dropdown-item" data-action="export-svg"><span>◇</span><span><strong>Vector SVG</strong><small>Sharp at every size</small></span></button></li>
+          <li><button type="button" class="dropdown-item" data-action="export-png"><span>▣</span><span><strong>High-res PNG</strong><small>Crisp transparent-safe image</small></span></button></li>
+          <li class="menu-divider"></li>
+          <li><button type="button" class="dropdown-item danger-item" title="Clear canvas" aria-haspopup="dialog" aria-expanded="false" aria-controls="clear-canvas-modal" data-overlay="#clear-canvas-modal"><span>×</span><span><strong>Clear canvas</strong><small>Start fresh; Undo remains available</small></span></button></li>
+        </ul>
+      </div>
+
+      <div class="dropdown relative inline-flex [--auto-close:inside]">
+        <button id="theme-toggle" type="button" class="dropdown-toggle btn btn-sm btn-text" aria-haspopup="menu" aria-controls="theme-dropdown" aria-expanded="false" aria-label="Appearance options"><span id="theme-icon">◐</span><span id="theme-label">System</span><span class="menu-caret">⌄</span></button>
+        <ul id="theme-dropdown" class="dropdown-menu dropdown-open:opacity-100 hidden min-w-48" role="menu" aria-orientation="vertical" aria-labelledby="theme-toggle">
+          <li class="dropdown-title">Appearance</li>
+          <li><button type="button" class="dropdown-item theme-choice" data-theme-value="light"><span>☀</span><span>Light</span><span class="theme-check">✓</span></button></li>
+          <li><button type="button" class="dropdown-item theme-choice" data-theme-value="dark"><span>◒</span><span>Dark</span><span class="theme-check">✓</span></button></li>
+          <li><button type="button" class="dropdown-item theme-choice" data-theme-value="system"><span>◐</span><span>System</span><span class="theme-check">✓</span></button></li>
+        </ul>
+      </div>
+
+      <button type="button" class="btn btn-sm btn-text command-trigger" title="Command menu (Ctrl+K)" aria-label="Open command menu" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-modal" data-overlay="#command-modal">⌘K</button>
+      <button type="button" class="btn btn-sm btn-text btn-square" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-modal" data-overlay="#settings-modal">⚙</button>
+      <button type="button" class="btn btn-sm btn-text btn-square" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-haspopup="dialog" aria-expanded="false" aria-controls="shortcuts-modal" data-overlay="#shortcuts-modal">?</button>
+      </div>
+      <input id="file-input" type="file" accept="application/json,application/xml,text/xml,.json,.xml" hidden>
+    </header>
+
+    <aside class="shape-panel" aria-label="Flowchart shapes">
+      <div class="panel-heading">
+        <span>🧩 Shapes</span>
+        <label class="snap-toggle" title="Snap objects to the grid">
+          <input id="snap-toggle" type="checkbox" checked> Snap
+        </label>
+      </div>
+      <label class="shape-search">
+        <span aria-hidden="true">⌕</span>
+        <input id="shape-search" type="search" placeholder="Find a shape…" autocomplete="off" aria-label="Find a shape">
+      </label>
+      <div id="shape-list" class="shape-list"></div>
+    </aside>
+
+    <main id="canvas-shell" class="canvas-shell" tabindex="0" aria-label="Flowchart canvas">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg" role="application" aria-label="Diagram editing canvas">
+        <defs>
+          <pattern id="small-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8ebef" stroke-width="1" vector-effect="non-scaling-stroke"></path>
+          </pattern>
+          <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="context-stroke"></path>
+          </marker>
+          <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">
+            <path d="M9,0 L9,6 L0,3 z" fill="context-stroke"></path>
+          </marker>
+          <marker id="circle-end" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="strokeWidth">
+            <circle cx="4" cy="4" r="2.5" fill="context-stroke"></circle>
+          </marker>
+          <marker id="diamond-end" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,4 L4,0 L8,4 L4,8 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+        <g id="viewport">
+          <rect class="workspace-bg" x="0" y="0" width="2400" height="1600"></rect>
+          <rect class="grid" x="0" y="0" width="2400" height="1600"></rect>
+          <g id="edge-layer"></g>
+          <g id="node-layer"></g>
+          <g id="overlay-layer"></g>
+        </g>
+      </svg>
+      <textarea id="inline-editor" class="inline-editor" aria-label="Edit text" spellcheck="true"></textarea>
+      <div id="context-toolbar" class="context-toolbar" role="toolbar" aria-label="Selection quick actions" hidden>
+        <span class="context-grip" aria-hidden="true">✥</span>
+        <button type="button" data-context-action="edit" title="Edit text (Enter)">✎ <span>Edit</span></button>
+        <button type="button" data-context-action="duplicate" title="Duplicate (Ctrl+D)">⧉ <span>Copy</span></button>
+        <button type="button" data-context-action="lock" title="Lock shape">♢ <span>Lock</span></button>
+        <button type="button" data-context-action="delete" class="context-danger" title="Delete">×</button>
+      </div>
+    </main>
+
+    <aside id="properties-panel" class="properties-panel" aria-label="Properties" hidden>
+      <div class="panel-heading"><span id="properties-title">✨ Properties</span></div>
+      <div id="properties-content" class="properties-content"></div>
+    </aside>
+
+    <footer class="statusbar">
+      <span id="status-text" aria-live="polite">Ready to create ✨</span>
+      <a class="maintainer-link" href="https://github.com/devkyato" target="_blank" rel="noreferrer" title="Built and maintained by @dev.mako">Made with care by @dev.mako</a>
+      <span id="selection-status">0 selected</span>
+      <span id="canvas-size-status">2400 × 1600</span>
+    </footer>
+  </div>
+  <div id="clear-canvas-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1" aria-labelledby="clear-canvas-title">
+    <div class="modal-dialog overlay-open:mt-12 overlay-open:duration-300 transition-all ease-out">
+      <div class="modal-content premium-modal">
+        <div class="modal-header">
+          <div>
+            <span class="modal-kicker">Destructive action</span>
+            <h2 id="clear-canvas-title" class="modal-title">Clear this canvas?</h2>
+          </div>
+          <button type="button" class="btn btn-text btn-circle btn-sm" aria-label="Close" data-overlay="#clear-canvas-modal">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Your current shapes and connectors will be removed. You can still use Undo immediately afterward.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-soft" data-overlay="#clear-canvas-modal">Keep editing</button>
+          <button type="button" class="btn btn-sm btn-error" data-confirm-clear data-overlay="#clear-canvas-modal">Clear canvas</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shortcuts-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1" aria-labelledby="shortcuts-title">
+    <div class="modal-dialog overlay-open:mt-12 overlay-open:duration-300 transition-all ease-out">
+      <div class="modal-content premium-modal">
+        <div class="modal-header">
+          <div>
+            <span class="modal-kicker">Move at flow speed</span>
+            <h2 id="shortcuts-title" class="modal-title">Keyboard shortcuts</h2>
+          </div>
+          <button type="button" class="btn btn-text btn-circle btn-sm" aria-label="Close" data-overlay="#shortcuts-modal">×</button>
+        </div>
+        <div class="modal-body shortcut-grid">
+          <span>Select</span><kbd>V</kbd>
+          <span>Connect</span><kbd>C</kbd>
+          <span>Add text</span><kbd>T</kbd>
+          <span>Pan canvas</span><kbd>Space + drag</kbd>
+          <span>Duplicate</span><kbd>Ctrl / ⌘ + D</kbd>
+          <span>Undo</span><kbd>Ctrl / ⌘ + Z</kbd>
+          <span>Save checkpoint</span><kbd>Ctrl / ⌘ + S</kbd>
+          <span>Nudge precisely</span><kbd>Arrow keys</kbd>
+        </div>
+        <div class="modal-footer">
+          <span class="modal-note">Tip: double-click any shape or connector label to edit it.</span>
+          <button type="button" class="btn btn-sm btn-primary" data-overlay="#shortcuts-modal">Got it</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1" aria-labelledby="settings-title">
+    <div class="modal-dialog settings-dialog">
+      <div class="modal-content premium-modal">
+        <div class="modal-header">
+          <div>
+            <span class="modal-kicker">Personal workspace</span>
+            <h2 id="settings-title" class="modal-title">Settings</h2>
+          </div>
+          <button type="button" class="btn btn-text btn-circle btn-sm" aria-label="Close settings" data-overlay="#settings-modal">×</button>
+        </div>
+        <div class="settings-layout">
+          <div class="tabs settings-tabs" role="tablist" aria-label="Settings sections">
+            <button type="button" class="tab active" role="tab" aria-selected="true" data-settings-tab="appearance">✦ Appearance</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-settings-tab="canvas"># Canvas</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-settings-tab="behavior">⌁ Behavior</button>
+          </div>
+          <div class="settings-panels">
+            <section class="settings-panel" data-settings-panel="appearance" role="tabpanel">
+              <div class="settings-section-heading"><div><strong>Theme</strong><small>Match your workspace and system.</small></div><span class="badge badge-soft badge-sm">Live</span></div>
+              <div class="theme-card-grid" role="radiogroup" aria-label="Color theme">
+                <button type="button" class="theme-card" data-theme-value="light" role="radio"><span class="theme-preview light-preview"></span><strong>Light</strong><small>Bright studio</small></button>
+                <button type="button" class="theme-card" data-theme-value="dark" role="radio"><span class="theme-preview dark-preview"></span><strong>Dark</strong><small>Cover-inspired</small></button>
+                <button type="button" class="theme-card" data-theme-value="system" role="radio"><span class="theme-preview system-preview"></span><strong>System</strong><small>Follow device</small></button>
+              </div>
+              <label class="setting-row"><span><strong>Reduce motion</strong><small>Pause shine and ambient movement.</small></span><input id="reduced-motion-toggle" type="checkbox" class="switch switch-sm switch-primary" role="switch"></label>
+            </section>
+            <section class="settings-panel" data-settings-panel="canvas" role="tabpanel" hidden>
+              <label class="setting-row"><span><strong>Show grid</strong><small>Display the alignment grid on the page.</small></span><input id="settings-grid-toggle" type="checkbox" class="switch switch-sm switch-primary" role="switch"></label>
+              <label class="setting-row"><span><strong>Snap to grid</strong><small>Keep shapes aligned while moving.</small></span><input id="settings-snap-toggle" type="checkbox" class="switch switch-sm switch-primary" role="switch"></label>
+              <div class="setting-row setting-action"><span><strong>Fit diagram</strong><small>Center everything in the available space.</small></span><button type="button" class="btn btn-sm btn-soft" data-settings-action="fit">Fit now</button></div>
+            </section>
+            <section class="settings-panel" data-settings-panel="behavior" role="tabpanel" hidden>
+              <label class="setting-row"><span><strong>Automatic local drafts</strong><small>Save changes privately in this browser.</small></span><input id="autosave-toggle" type="checkbox" class="switch switch-sm switch-primary" role="switch"></label>
+              <label class="setting-field"><span><strong>New connector path</strong><small>Default routing for newly drawn connectors.</small></span><select id="default-connector" class="select select-sm"><option value="straight">Straight</option><option value="elbow">Elbow</option><option value="curved">Curved</option></select></label>
+              <label class="setting-field"><span><strong>New connector end</strong><small>Default marker for newly drawn connectors.</small></span><select id="default-arrow" class="select select-sm"><option value="arrow">Arrow</option><option value="none">None</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></label>
+            </section>
+          </div>
+        </div>
+        <div class="modal-footer settings-footer"><span class="modal-note">Settings stay on this device.</span><button type="button" class="btn btn-sm btn-primary" data-overlay="#settings-modal">Done</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="command-modal" class="overlay modal command-overlay hidden" role="dialog" tabindex="-1" aria-labelledby="command-title">
+    <div class="modal-dialog command-dialog">
+      <div class="modal-content premium-modal">
+        <div class="command-search-wrap">
+          <span aria-hidden="true">⌕</span>
+          <input id="command-search" class="input" type="search" placeholder="Type a command…" autocomplete="off" aria-labelledby="command-title">
+          <kbd>Esc</kbd>
+        </div>
+        <h2 id="command-title" class="sr-only">Command menu</h2>
+        <div id="command-list" class="command-list" role="listbox" aria-label="Editor commands">
+          <button type="button" data-command-action="save"><span>💾</span><span><strong>Save checkpoint</strong><small>Project</small></span><kbd>Ctrl S</kbd></button>
+          <button type="button" data-command-action="fit"><span>⊡</span><span><strong>Fit diagram</strong><small>View</small></span></button>
+          <button type="button" data-command-mode="select"><span>↖</span><span><strong>Select tool</strong><small>Tools</small></span><kbd>V</kbd></button>
+          <button type="button" data-command-mode="connect"><span>⤴</span><span><strong>Connector tool</strong><small>Tools</small></span><kbd>C</kbd></button>
+          <button type="button" data-command-mode="text"><span>✎</span><span><strong>Text tool</strong><small>Tools</small></span><kbd>T</kbd></button>
+          <button type="button" data-command-action="export-svg"><span>◇</span><span><strong>Export SVG</strong><small>File</small></span></button>
+          <button type="button" data-command-settings><span>⚙</span><span><strong>Open settings</strong><small>Workspace</small></span></button>
+        </div>
+        <div class="command-footer"><span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span><span><kbd>Enter</kbd> Run</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-region" class="toast-stack" role="region" aria-label="Notifications" aria-live="polite"></div>
+  <script src="script.js"></script>
+</body>
+</html>
