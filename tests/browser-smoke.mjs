@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -138,6 +138,25 @@ try {
   assert(initial.nodes === 8 && initial.edges === 7, "Starter diagram did not render correctly");
   assert(!initial.overlay, "An error overlay is visible");
 
+  const connectionResult = await client.evaluate(`(() => {
+    document.querySelector('[data-mode="connect"]').click();
+    const svg = document.querySelector('#canvas');
+    svg.setPointerCapture = () => {};
+    const nodes = [...document.querySelectorAll('#node-layer .node')];
+    const center = (element) => { const box = element.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; };
+    const fromElement = document.querySelector('[data-port-node="' + nodes[0].dataset.nodeId + '"][data-port="bottom"]');
+    const toElement = document.querySelector('[data-port-node="' + nodes[1].dataset.nodeId + '"][data-port="top"]');
+    const from = center(fromElement);
+    const to = center(toElement);
+    fromElement.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: from.x, clientY: from.y, button: 0, pointerId: 1 }));
+    svg.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: to.x, clientY: to.y, button: 0, pointerId: 1 }));
+    svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: to.x, clientY: to.y, button: 0, pointerId: 1 }));
+    return { edges: document.querySelectorAll('#edge-layer .edge').length, status: document.querySelector('#status-text').textContent };
+  })()`);
+  assert(connectionResult.edges === 8, `Connector creation failed: ${JSON.stringify(connectionResult)} ${client.errors.join("; ")}`);
+  await client.evaluate("document.querySelector('[data-action=\"undo\"]').click()");
+  assert(await client.evaluate("document.querySelectorAll('#edge-layer .edge').length") === 7, "Connector undo failed");
+
   const afterAdd = await client.evaluate(`(() => {
     document.querySelector('[data-shape="decision"]').click();
     return { nodes: document.querySelectorAll('#node-layer .node').length, panel: !document.querySelector('#properties-panel').hidden };
@@ -154,6 +173,43 @@ try {
   })()`);
   assert(edited.opened && edited.text.includes("Approved?"), `Inline text editing failed: ${JSON.stringify(edited)}`);
 
+  const geometryBefore = await client.evaluate(`(() => {
+    const node = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
+    const zoom = document.querySelector('#zoom-display').textContent;
+    return { x: node.x, y: node.y, width: node.width, height: node.height, zoom };
+  })()`);
+  await client.evaluate(`(() => {
+    const svg = document.querySelector('#canvas');
+    const box = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -120, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 }));
+    const movedBox = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
+    const start = { x: movedBox.x + movedBox.width / 2, y: movedBox.y + movedBox.height / 2 };
+    const node = document.querySelector('#node-layer .node:last-child');
+    node.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: start.x, clientY: start.y, button: 0, pointerId: 2 }));
+    svg.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: start.x + 35, clientY: start.y + 25, button: 0, pointerId: 2 }));
+    svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: start.x + 35, clientY: start.y + 25, button: 0, pointerId: 2 }));
+  })()`);
+  const geometryMoved = await client.evaluate(`(() => {
+    const node = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
+    return { x: node.x, y: node.y, zoom: document.querySelector('#zoom-display').textContent };
+  })()`);
+  assert(geometryMoved.zoom !== geometryBefore.zoom, "Ctrl+wheel zoom failed");
+  assert(geometryMoved.x > geometryBefore.x + 15 && geometryMoved.y > geometryBefore.y + 10, "Dragging after zoom failed");
+
+  const resizeStart = await client.evaluate(`(() => {
+    const svg = document.querySelector('#canvas');
+    const handle = document.querySelector('[data-handle="se"]');
+    const box = handle.getBoundingClientRect();
+    const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const width = document.querySelector('#node-layer .node:last-child').getBoundingClientRect().width;
+    handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: start.x, clientY: start.y, button: 0, pointerId: 3 }));
+    svg.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: start.x + 40, clientY: start.y + 30, button: 0, pointerId: 3 }));
+    svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: start.x + 40, clientY: start.y + 30, button: 0, pointerId: 3 }));
+    return { ...start, width };
+  })()`);
+  const resizedWidth = await client.evaluate("document.querySelector('#node-layer .node:last-child').getBoundingClientRect().width");
+  assert(resizedWidth > resizeStart.width + 15, "Resize handles failed after zoom");
+
   const history = await client.evaluate(`(() => {
     document.querySelector('[data-action="duplicate"]').click();
     const duplicated = document.querySelectorAll('#node-layer .node').length;
@@ -169,9 +225,25 @@ try {
   })()`);
   assert(history.duplicated === 10 && history.undone === 9 && history.redone === 10, "Duplicate or history controls failed");
   assert(history.cleared === 0 && history.restored === 10 && history.hint?.includes("Add a shape"), "Clear or restore behavior failed");
+
+  const persistence = await client.evaluate(`(() => {
+    document.querySelector('[data-action="save"]').click();
+    document.querySelector('[data-action="clear"]').click();
+    const cleared = document.querySelectorAll('#node-layer .node').length;
+    document.querySelector('[data-action="load"]').click();
+    return { cleared, loaded: document.querySelectorAll('#node-layer .node').length };
+  })()`);
+  assert(persistence.cleared === 0 && persistence.loaded === 10, "Local save and load failed");
+
+  await client.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: profile });
+  await client.evaluate(`(() => { document.querySelector('[data-action="export-svg"]').click(); document.querySelector('[data-action="export-png"]').click(); })()`);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  const downloads = readdirSync(profile);
+  assert(downloads.some((name) => name.endsWith(".svg")), "SVG export did not download");
+  assert(downloads.some((name) => name.endsWith(".png")), "PNG export did not download");
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
-  console.log("Browser smoke test passed: rendering, add, edit, duplicate, history, clear, and restore.");
+  console.log("Browser smoke test passed: rendering, connectors, zoom, drag, resize, text, history, persistence, and export.");
 } finally {
   client?.close();
   browser.kill();
