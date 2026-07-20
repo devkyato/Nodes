@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A compact, dependency-free flowchart editor.">
+  <title>Flowchart Creator</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar" aria-label="Editor toolbar">
+      <input id="document-title" class="document-title" value="Untitled Flowchart" aria-label="Document title" title="Document title">
+      <span class="toolbar-separator"></span>
+      <div class="tool-group" aria-label="History">
+        <button type="button" data-action="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+        <button type="button" data-action="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      </div>
+      <div class="tool-group" aria-label="Tools">
+        <button type="button" class="tool-button active" data-mode="select" title="Select tool (V)">Select</button>
+        <button type="button" class="tool-button" data-mode="connect" title="Connector tool (C)">Connect</button>
+        <button type="button" class="tool-button" data-mode="text" title="Text tool (T)">Text</button>
+      </div>
+      <div class="tool-group" aria-label="Edit">
+        <button type="button" data-action="duplicate" title="Duplicate (Ctrl+D)">Duplicate</button>
+        <button type="button" data-action="delete" title="Delete selection">Delete</button>
+        <button type="button" data-action="clear" title="Clear canvas">Clear</button>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="tool-group zoom-group" aria-label="Zoom">
+        <button type="button" data-action="zoom-out" title="Zoom out">−</button>
+        <button type="button" id="zoom-display" data-action="zoom-reset" title="Reset zoom">100%</button>
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="fit" title="Fit diagram to screen">Fit</button>
+      </div>
+      <div class="tool-group file-actions" aria-label="File actions">
+        <button type="button" data-action="save" title="Save in this browser (Ctrl+S)">Save</button>
+        <button type="button" data-action="load" title="Load saved project">Load</button>
+        <button type="button" data-action="download-json" title="Download project JSON">JSON ↓</button>
+        <button type="button" data-action="import-json" title="Import project JSON">JSON ↑</button>
+        <button type="button" data-action="export-svg" title="Export SVG">SVG</button>
+        <button type="button" data-action="export-png" title="Export PNG">PNG</button>
+      </div>
+      <input id="file-input" type="file" accept="application/json,.json" hidden>
+    </header>
+
+    <aside class="shape-panel" aria-label="Flowchart shapes">
+      <div class="panel-heading">
+        <span>Shapes</span>
+        <label class="snap-toggle" title="Snap objects to the grid">
+          <input id="snap-toggle" type="checkbox" checked> Snap
+        </label>
+      </div>
+      <div id="shape-list" class="shape-list"></div>
+    </aside>
+
+    <main id="canvas-shell" class="canvas-shell" tabindex="0" aria-label="Flowchart canvas">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg" role="application" aria-label="Diagram editing canvas">
+        <defs>
+          <pattern id="small-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8ebef" stroke-width="1" vector-effect="non-scaling-stroke"></path>
+          </pattern>
+          <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="context-stroke"></path>
+          </marker>
+          <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">
+            <path d="M9,0 L9,6 L0,3 z" fill="context-stroke"></path>
+          </marker>
+          <marker id="circle-end" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="strokeWidth">
+            <circle cx="4" cy="4" r="2.5" fill="context-stroke"></circle>
+          </marker>
+          <marker id="diamond-end" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,4 L4,0 L8,4 L4,8 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+        <g id="viewport">
+          <rect class="workspace-bg" x="0" y="0" width="2400" height="1600"></rect>
+          <rect class="grid" x="0" y="0" width="2400" height="1600"></rect>
+          <g id="edge-layer"></g>
+          <g id="node-layer"></g>
+          <g id="overlay-layer"></g>
+        </g>
+      </svg>
+      <textarea id="inline-editor" class="inline-editor" aria-label="Edit text" spellcheck="true"></textarea>
+    </main>
+
+    <aside id="properties-panel" class="properties-panel" aria-label="Properties" hidden>
+      <div class="panel-heading"><span id="properties-title">Properties</span></div>
+      <div id="properties-content" class="properties-content"></div>
+    </aside>
+
+    <footer class="statusbar">
+      <span id="status-text" aria-live="polite">Ready</span>
+      <span id="selection-status">0 selected</span>
+      <span id="canvas-size-status">2400 × 1600</span>
+    </footer>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

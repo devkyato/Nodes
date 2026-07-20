@@ -1,2 +1,79 @@
-# Nodes
-A minimal, browser-based node and flowchart editor with editable shapes, connectors, local saving, and SVG/PNG export.
+# Flowchart Creator
+
+[![CI](https://github.com/devkyato/Nodes/actions/workflows/ci.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/ci.yml)
+[![Pages](https://github.com/devkyato/Nodes/actions/workflows/pages.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/pages.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A compact, browser-based flowchart editor built with HTML, CSS, vanilla JavaScript, and SVG. It has no runtime dependencies, sends no diagram data to a server, and works by opening `index.html` directly.
+
+[Open Flowchart Creator](https://devkyato.github.io/Nodes/)
+
+## Highlights
+
+- Twelve standard flowchart symbols with accurate SVG geometry
+- Direct multiline text editing and standalone text
+- Straight, orthogonal, and curved connectors that stay attached
+- Multi-selection, alignment, distribution, grouping, and layer controls
+- Pointer, keyboard, zoom, pan, resize, copy, paste, undo, and redo support
+- Local browser saving plus portable JSON project files
+- Clean SVG and PNG export cropped to the diagram bounds
+- Responsive compact interface with no framework or external library
+
+## Use locally
+
+Open `index.html` in a modern browser. For a local HTTP server:
+
+```bash
+npm start
+```
+
+Then open `http://127.0.0.1:4173`.
+
+## Essential controls
+
+| Action | Control |
+| --- | --- |
+| Select multiple | Shift + click or drag a selection rectangle |
+| Pan | Hold Space and drag |
+| Zoom | Ctrl/Cmd + mouse wheel |
+| Edit text | Double-click a shape, label, or standalone text |
+| Add standalone text | Double-click empty canvas or use Text |
+| Move precisely | Arrow keys; hold Shift for 10 px |
+| Duplicate | Ctrl/Cmd + D |
+| Copy / paste | Ctrl/Cmd + C / Ctrl/Cmd + V |
+| Undo / redo | Ctrl/Cmd + Z / Ctrl/Cmd + Shift + Z |
+| Finish text editing | Click outside or Ctrl/Cmd + Enter |
+| Cancel text editing | Escape |
+
+## Project files
+
+```text
+index.html          Application structure
+style.css           Interface and responsive styling
+script.js           State, rendering, interaction, persistence, export
+scripts/            Dependency-free local server and build packaging
+tests/              Headless-browser workflow verification
+.github/            CI, Pages, releases, and contribution templates
+docs/               Architecture and release notes for maintainers
+```
+
+## Quality checks
+
+```bash
+npm test
+npm run build
+```
+
+The browser smoke suite exercises rendering, connectors, zoomed dragging, resizing, text editing, history, persistence, and SVG/PNG export.
+
+## Privacy
+
+Projects remain in the browser unless the user downloads or imports a file. The application has no analytics, accounts, API calls, or remote storage.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE)

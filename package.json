@@ -1,0 +1,23 @@
+{
+  "name": "flowchart-creator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A compact, dependency-free SVG flowchart editor.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node --check script.js",
+    "test": "node --check script.js && node tests/browser-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "flowchart",
+    "diagram",
+    "svg",
+    "vanilla-javascript"
+  ],
+  "license": "MIT"
+}
