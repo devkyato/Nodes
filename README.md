@@ -1,4 +1,4 @@
-# Flowchart Creator
+# ◈ Flowchart Creator
 
 ![Nodes — Flowchart Creator repository cover by @dev.mako](docs/assets/github-cover.png)
 
@@ -8,11 +8,11 @@
 
 A compact, browser-based flowchart editor built with HTML, CSS, vanilla JavaScript, and SVG. It has no runtime dependencies, sends no diagram data to a server, and works by opening `index.html` directly.
 
-[Open Flowchart Creator](https://devkyato.github.io/Nodes/)
+[✨ Open Flowchart Creator](https://devkyato.github.io/Nodes/)
 
 Built and maintained by [@dev.mako](https://github.com/devkyato) (`devkyato`). I made this as a practical, private diagram tool: fast enough to open for a five-minute sketch, capable enough to keep using when the flow gets real, and simple enough to understand without a manual.
 
-## Highlights
+## ✨ Highlights
 
 - Twelve standard flowchart symbols with accurate SVG geometry
 - Direct multiline text editing and standalone text
@@ -20,10 +20,11 @@ Built and maintained by [@dev.mako](https://github.com/devkyato) (`devkyato`). I
 - Multi-selection, alignment, distribution, grouping, and layer controls
 - Pointer, keyboard, zoom, pan, resize, copy, paste, undo, and redo support
 - Local browser saving plus portable JSON project files
+- Automatic local drafts plus structured XML project import and export
 - Clean SVG and PNG export cropped to the diagram bounds
-- Responsive compact interface with no framework or external library
+- Responsive light and dark themes with a compact, minimal interface
 
-## Use locally
+## 🚀 Use locally
 
 Open `index.html` in a modern browser. For a local HTTP server:
 
@@ -33,7 +34,7 @@ npm start
 
 Then open `http://127.0.0.1:4173`.
 
-## Essential controls
+## ⌨️ Essential controls
 
 | Action | Control |
 | --- | --- |
@@ -49,7 +50,7 @@ Then open `http://127.0.0.1:4173`.
 | Finish text editing | Click outside or Ctrl/Cmd + Enter |
 | Cancel text editing | Escape |
 
-## Project files
+## 📁 Project files
 
 ```text
 index.html          Application structure
@@ -61,20 +62,20 @@ tests/              Headless-browser workflow verification
 docs/               Architecture and release notes for maintainers
 ```
 
-## Quality checks
+## ✅ Quality checks
 
 ```bash
 npm test
 npm run build
 ```
 
-The browser smoke suite exercises rendering, connectors, zoomed dragging, resizing, text editing, history, persistence, and SVG/PNG export.
+The browser smoke suite exercises themes, rendering, connectors, zoomed dragging, resizing, text editing, history, local persistence, XML/JSON projects, and SVG/PNG export.
 
-## Privacy
+## 🔒 Privacy
 
 Projects remain in the browser unless the user downloads or imports a file. The application has no analytics, accounts, API calls, or remote storage.
 
-## Maintainer
+## 👋 Maintainer
 
 I’m [@dev.mako](https://github.com/devkyato). If this tool saves you time, star the repository, share the live editor, or open a focused issue with an idea that would make real diagram work smoother.
 
