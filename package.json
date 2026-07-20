@@ -1,6 +1,6 @@
 {
   "name": "flowchart-creator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "A compact, dependency-free SVG flowchart editor.",
   "homepage": "https://devkyato.github.io/Nodes/",
