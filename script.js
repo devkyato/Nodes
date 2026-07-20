@@ -84,7 +84,7 @@
     const [width, height] = DEFAULT_SIZES[type] || DEFAULT_SIZES.process;
     return {
       id: uid("node"), type, x, y, width, height, rotation: 0, text,
-      style: clone(DEFAULT_NODE_STYLE), zIndex: state?.nodes?.length || 0, groupId: null
+      style: clone(DEFAULT_NODE_STYLE), zIndex: 0, groupId: null
     };
   }
 
@@ -94,12 +94,11 @@
       nodes: [], edges: [], selectedIds: [], zoom: 0.82, pan: { x: 160, y: 38 },
       mode: "select", snap: true, history: [], historyIndex: -1
     };
-    state = next;
     const labels = [
       ["terminator", "START"],
-      ["input", "Display message:\n“How many hours did you work?”"],
+      ["input", "Display message:\n\"How many hours did you work?\""],
       ["input", "Read Hours"],
-      ["input", "Display message:\n“How much do you get paid per hour?”"],
+      ["input", "Display message:\n\"How much do you get paid per hour?\""],
       ["input", "Read Pay Rate"],
       ["process", "Multiply Hours by Pay Rate\nStore result in Gross Pay"],
       ["input", "Display Gross Pay"],
