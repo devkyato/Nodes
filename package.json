@@ -1,8 +1,8 @@
 {
   "name": "flowchart-creator",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
-  "description": "A compact, dependency-free SVG flowchart editor.",
+  "description": "A compact, private SVG flowchart editor with local projects, XML, and premium diagram controls.",
   "homepage": "https://devkyato.github.io/Nodes/",
   "repository": {
     "type": "git",
@@ -17,10 +17,11 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "build": "node scripts/build.mjs",
+    "styles": "tailwindcss -i src/flyon.css -o flyon.css --minify",
+    "start": "npm run styles && node scripts/serve.mjs",
+    "build": "npm run styles && node scripts/build.mjs",
     "check": "node --check script.js",
-    "test": "node --check script.js && node tests/browser-smoke.mjs"
+    "test": "npm run styles && node --check script.js && node tests/browser-smoke.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -34,5 +35,10 @@
     "productivity",
     "vanilla-javascript"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "flyonui": "^2.4.1",
+    "tailwindcss": "^4.3.3"
+  }
 }
