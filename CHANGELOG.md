@@ -4,6 +4,20 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-20
+
+### Added
+
+- Persisted light and dark themes that respect the initial system preference.
+- Silent per-browser draft autosaving and automatic draft recovery after reload.
+- Structured XML project download and import alongside the existing JSON format.
+- Browser coverage for theme persistence, local drafts, and XML round-tripping.
+
+### Changed
+
+- Refined the editor chrome with compact branding, restrained emoji cues, softer surfaces, and more consistent spacing.
+- Reworked interface colors into reusable theme tokens while preserving clean white SVG and PNG exports.
+
 ## [1.1.1] - 2026-07-20
 
 ### Fixed
@@ -37,7 +51,8 @@ All notable changes are documented here. Releases follow [Semantic Versioning](h
 - Dependency-free packaging and browser workflow tests.
 - Automated CI, GitHub Pages deployment, and tag-based GitHub releases.
 
-[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/devkyato/Nodes/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/devkyato/Nodes/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/devkyato/Nodes/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/devkyato/Nodes/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/devkyato/Nodes/releases/tag/v1.0.0
