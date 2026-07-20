@@ -140,15 +140,51 @@ try {
 
   const theme = await client.evaluate(`(() => {
     const before = document.documentElement.dataset.theme;
-    document.querySelector('[data-action="theme"]').click();
+    const choice = before === 'dark' ? 'light' : 'dark';
+    document.querySelector('[data-theme-value="' + choice + '"]').click();
     const after = document.documentElement.dataset.theme;
     const saved = localStorage.getItem('flowchart-creator-theme');
-    const label = document.querySelector('[data-action="theme"]').getAttribute('aria-label');
-    document.querySelector('[data-action="theme"]').click();
-    return { before, after, saved, label };
+    const label = document.querySelector('#theme-toggle').getAttribute('aria-label');
+    document.querySelector('[data-theme-value="system"]').click();
+    return { before, after, saved, label, choice };
   })()`);
-  assert(theme.before !== theme.after && theme.saved === theme.after, "Theme switching did not persist");
-  assert(theme.label.includes(theme.after === "dark" ? "light" : "dark"), "Theme toggle label did not update");
+  assert(theme.before !== theme.after && theme.saved === theme.choice, "Theme switching did not persist");
+  assert(theme.label.toLowerCase().includes(theme.choice), "Theme menu label did not update");
+
+  const uiSystem = await client.evaluate(`(() => {
+    document.querySelector('button[title="Settings"]').click();
+    const settingsVisible = !document.querySelector('#settings-modal').classList.contains('hidden');
+    document.querySelector('[data-settings-tab="canvas"]').click();
+    const grid = document.querySelector('#settings-grid-toggle');
+    grid.checked = false; grid.dispatchEvent(new Event('change', { bubbles: true }));
+    const gridHidden = document.querySelector('.grid').hidden;
+    grid.checked = true; grid.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('[data-settings-tab="behavior"]').click();
+    const connector = document.querySelector('#default-connector');
+    connector.value = 'curved'; connector.dispatchEvent(new Event('change', { bubbles: true }));
+    const arrow = document.querySelector('#default-arrow');
+    arrow.value = 'diamond'; arrow.dispatchEvent(new Event('change', { bubbles: true }));
+    const motion = document.querySelector('#reduced-motion-toggle');
+    motion.checked = true; motion.dispatchEvent(new Event('change', { bubbles: true }));
+    const reduced = document.documentElement.dataset.reduceMotion === 'true';
+    motion.checked = false; motion.dispatchEvent(new Event('change', { bubbles: true }));
+    const stored = JSON.parse(localStorage.getItem('flowchart-creator-settings-v1'));
+    connector.value = 'straight'; connector.dispatchEvent(new Event('change', { bubbles: true }));
+    arrow.value = 'arrow'; arrow.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('[data-overlay="#settings-modal"].btn-primary').click();
+    window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ctrlKey: true, key: 'k' }));
+    const commandVisible = !document.querySelector('#command-modal').classList.contains('hidden');
+    const search = document.querySelector('#command-search');
+    search.value = 'settings'; search.dispatchEvent(new Event('input', { bubbles: true }));
+    const visibleCommands = [...document.querySelectorAll('#command-list button')].filter((button) => !button.hidden).length;
+    document.querySelector('[data-command-settings]').click();
+    const routedToSettings = !document.querySelector('#settings-modal').classList.contains('hidden') && document.querySelector('#command-modal').classList.contains('hidden');
+    document.querySelector('[aria-label="Close settings"]').click();
+    return { settingsVisible, gridHidden, reduced, stored, commandVisible, visibleCommands, routedToSettings };
+  })()`);
+  assert(uiSystem.settingsVisible && uiSystem.gridHidden && uiSystem.reduced, "Settings modal did not control the workspace");
+  assert(uiSystem.stored.defaultConnector === "curved" && uiSystem.stored.defaultArrow === "diamond", "Editor preferences did not persist");
+  assert(uiSystem.commandVisible && uiSystem.visibleCommands === 1 && uiSystem.routedToSettings, "Command menu search or routing failed");
 
   const connectionResult = await client.evaluate(`(() => {
     document.querySelector('[data-mode="connect"]').click();
@@ -226,25 +262,50 @@ try {
   const resizedWidth = await client.evaluate("document.querySelector('#node-layer .node:last-child').getBoundingClientRect().width");
   assert(resizedWidth > resizeStart.width + 15, "Resize handles failed after zoom");
 
+  const clarityControls = await client.evaluate(`(() => {
+    const toolbar = document.querySelector('#context-toolbar');
+    const initiallyVisible = !toolbar.hidden;
+    toolbar.querySelector('[data-context-action="lock"]').click();
+    const locked = document.querySelector('#node-layer .node:last-child').dataset.locked === 'true';
+    const handlesWhileLocked = document.querySelectorAll('[data-resize-id]').length;
+    toolbar.querySelector('[data-context-action="lock"]').click();
+    document.querySelector('[data-view-action="grid"]').click();
+    const gridHidden = document.querySelector('.grid').hidden;
+    document.querySelector('[data-view-action="grid"]').click();
+    document.querySelector('#project-menu').click();
+    document.querySelector('#theme-toggle').click();
+    const openMenus = [...document.querySelectorAll('.toolbar .dropdown-menu')].filter((menu) => !menu.classList.contains('hidden')).length;
+    document.querySelector('#shape-search').value = 'decision';
+    document.querySelector('#shape-search').dispatchEvent(new Event('input', { bubbles: true }));
+    const visibleShapes = [...document.querySelectorAll('.shape-item')].filter((item) => !item.hidden).length;
+    return { initiallyVisible, locked, handlesWhileLocked, gridHidden, openMenus, visibleShapes };
+  })()`);
+  assert(clarityControls.initiallyVisible && clarityControls.locked && clarityControls.handlesWhileLocked === 0, "Selection quick actions or shape locking failed");
+  assert(clarityControls.gridHidden && clarityControls.openMenus === 1 && clarityControls.visibleShapes === 1, "View controls, menu clarity, or shape search failed");
+  await client.evaluate(`(() => { const search = document.querySelector('#shape-search'); search.value = ''; search.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+
   const history = await client.evaluate(`(() => {
-    document.querySelector('[data-action="duplicate"]').click();
+    document.querySelector('[data-context-action="duplicate"]').click();
     const duplicated = document.querySelectorAll('#node-layer .node').length;
     document.querySelector('[data-action="undo"]').click();
     const undone = document.querySelectorAll('#node-layer .node').length;
     document.querySelector('[data-action="redo"]').click();
     const redone = document.querySelectorAll('#node-layer .node').length;
-    document.querySelector('[data-action="clear"]').click();
+    document.querySelector('button[title="Clear canvas"]').click();
+    const modalVisible = !document.querySelector('#clear-canvas-modal').classList.contains('hidden');
+    document.querySelector('[data-confirm-clear]').click();
     const cleared = document.querySelectorAll('#node-layer .node').length;
     const hint = document.querySelector('.empty-hint')?.textContent;
     document.querySelector('[data-action="undo"]').click();
-    return { duplicated, undone, redone, cleared, restored: document.querySelectorAll('#node-layer .node').length, hint };
+    return { duplicated, undone, redone, modalVisible, cleared, restored: document.querySelectorAll('#node-layer .node').length, hint };
   })()`);
   assert(history.duplicated === 10 && history.undone === 9 && history.redone === 10, "Duplicate or history controls failed");
-  assert(history.cleared === 0 && history.restored === 10 && history.hint?.includes("Add a shape"), "Clear or restore behavior failed");
+  assert(history.modalVisible && history.cleared === 0 && history.restored === 10 && history.hint?.includes("Add a shape"), "Clear confirmation or restore behavior failed");
 
   const persistence = await client.evaluate(`(() => {
     document.querySelector('[data-action="save"]').click();
-    document.querySelector('[data-action="clear"]').click();
+    document.querySelector('button[title="Clear canvas"]').click();
+    document.querySelector('[data-confirm-clear]').click();
     const cleared = document.querySelectorAll('#node-layer .node').length;
     document.querySelector('[data-action="load"]').click();
     return { cleared, loaded: document.querySelectorAll('#node-layer .node').length };
@@ -281,7 +342,8 @@ try {
   assert(exportedXml.includes("<flowchart-project") && exportedXml.includes("Approved path"), "XML project export is incomplete");
 
   const xmlImport = await client.evaluate(`(() => new Promise((resolve) => {
-    document.querySelector('[data-action="clear"]').click();
+    document.querySelector('button[title="Clear canvas"]').click();
+    document.querySelector('[data-confirm-clear]').click();
     const input = document.querySelector('#file-input');
     const transfer = new DataTransfer();
     transfer.items.add(new File([${JSON.stringify(exportedXml)}], 'roundtrip.xml', { type: 'application/xml' }));
@@ -299,7 +361,7 @@ try {
   assert(xmlImport.status.includes("Imported XML") && xmlImport.nodes === 10 && xmlImport.edges === 7, `XML round-trip failed: ${JSON.stringify(xmlImport)}`);
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
-  console.log("Browser smoke test passed: themes, rendering, connectors, zoom, drag, resize, text, history, local persistence, XML/JSON projects, and SVG/PNG export.");
+  console.log("Browser smoke test passed: FlyonUI settings, commands, themes, locking, menus, modals, rendering, connectors, persistence, XML/JSON projects, and SVG/PNG export.");
 } finally {
   client?.close();
   browser.kill();
