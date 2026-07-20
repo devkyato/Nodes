@@ -4,8 +4,16 @@
   const SVG_NS = "http://www.w3.org/2000/svg";
   const CANVAS = { width: 2400, height: 1600, padding: 16 };
   const GRID_SIZE = 20;
-  const STORAGE_KEY = "flowchart-creator-project-v1";
-  const DRAFT_KEY = "flowchart-creator-draft-v1";
+  const LIBRARY_KEY = "nodes-project-library-v1";
+  const PROJECT_PREFIX = "nodes-project-v1:";
+  const CHECKPOINT_PREFIX = "nodes-checkpoint-v1:";
+  const LEGACY_STORAGE_KEY = "flowchart-creator-project-v1";
+  const LEGACY_DRAFT_KEY = "flowchart-creator-draft-v1";
+  const projectParams = new URLSearchParams(location.search);
+  const activeProjectId = projectParams.get("project") || globalThis.crypto?.randomUUID?.() || `flow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const PROJECT_KEY = `${PROJECT_PREFIX}${activeProjectId}`;
+  const CHECKPOINT_KEY = `${CHECKPOINT_PREFIX}${activeProjectId}`;
+  if (!projectParams.has("project")) history.replaceState(null, "", `editor.html?project=${encodeURIComponent(activeProjectId)}`);
   const THEME_KEY = "flowchart-creator-theme";
   const SETTINGS_KEY = "flowchart-creator-settings-v1";
   const DEFAULT_SETTINGS = Object.freeze({
@@ -379,7 +387,7 @@
     refs.zoom.textContent = `${Math.round(state.zoom * 100)}%`;
     refs.selectionStatus.textContent = `${state.selectedIds.length} selected`;
     refs.shell.dataset.mode = state.mode;
-    refs.grid.hidden = state.showGrid === false;
+    refs.grid.toggleAttribute("hidden", state.showGrid === false);
     renderProperties();
     renderContextToolbar();
     updateToolbar();
@@ -1037,21 +1045,47 @@
 
   function persistLocal() {
     if (!preferences.autosave) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(projectData())); } catch {}
+    try {
+      localStorage.setItem(PROJECT_KEY, JSON.stringify(projectData()));
+      updateLibraryMetadata();
+    } catch {}
   }
 
   function saveLocal() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData())); } catch {}
-    persistLocal();
+    try {
+      const data = JSON.stringify(projectData());
+      localStorage.setItem(PROJECT_KEY, data);
+      localStorage.setItem(CHECKPOINT_KEY, data);
+      updateLibraryMetadata();
+    } catch {}
     setStatus("Saved safely in this browser ✓");
     showToast("Checkpoint saved locally", "success");
   }
 
   function loadLocal() {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(CHECKPOINT_KEY);
     if (!raw) { setStatus("No saved project in this browser"); return; }
     try { loadProject(JSON.parse(raw), "Loaded saved project"); showToast("Checkpoint restored", "success"); }
     catch { setStatus("The saved project could not be loaded"); showToast("Could not load that checkpoint", "error"); }
+  }
+
+  function updateLibraryMetadata() {
+    const now = new Date().toISOString();
+    let library = [];
+    try {
+      const stored = JSON.parse(localStorage.getItem(LIBRARY_KEY) || "[]");
+      if (Array.isArray(stored)) library = stored;
+    } catch {}
+    const existing = library.find((item) => item?.id === activeProjectId);
+    const metadata = {
+      id: activeProjectId,
+      title: state.documentTitle,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      nodeCount: state.nodes.length
+    };
+    library = [metadata, ...library.filter((item) => item?.id !== activeProjectId)];
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
   }
 
   function safeFileName(extension) {
@@ -1335,19 +1369,50 @@
       if (menu === except) return;
       menu.classList.add("hidden");
       menu.closest(".dropdown")?.classList.remove("menu-open");
-      const toggle = menu.previousElementSibling;
+      const toggle = document.querySelector(`[aria-controls="${menu.id}"]`) || menu.previousElementSibling;
       if (toggle?.matches(".dropdown-toggle")) toggle.setAttribute("aria-expanded", "false");
     });
   }
 
   function toggleMenu(toggle) {
-    const menu = toggle.nextElementSibling;
+    const menu = document.querySelector(`#${toggle.getAttribute("aria-controls")}`) || toggle.nextElementSibling;
     if (!menu?.matches(".dropdown-menu")) return;
     const willOpen = menu.classList.contains("hidden");
     closeMenus(menu);
     menu.classList.toggle("hidden", !willOpen);
     menu.closest(".dropdown")?.classList.toggle("menu-open", willOpen);
     toggle.setAttribute("aria-expanded", String(willOpen));
+  }
+
+  function menuButtons(menu) {
+    return [...menu.querySelectorAll("button:not(:disabled)")].filter((button) => !button.hidden);
+  }
+
+  function handleMenuKeydown(event) {
+    const toggle = event.target.closest(".dropdown-toggle");
+    const menu = event.target.closest(".dropdown-menu");
+    if (toggle && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      const targetMenu = document.querySelector(`#${toggle.getAttribute("aria-controls")}`);
+      if (targetMenu?.classList.contains("hidden")) toggleMenu(toggle);
+      const buttons = targetMenu ? menuButtons(targetMenu) : [];
+      const target = event.key === "ArrowUp" ? buttons.at(-1) : buttons[0];
+      target?.focus({ preventScroll: true });
+      return;
+    }
+    if (!menu) return;
+    const buttons = menuButtons(menu);
+    const index = buttons.indexOf(event.target.closest("button"));
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && buttons.length) {
+      event.preventDefault();
+      const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[next].focus({ preventScroll: true });
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      const owner = document.querySelector(`[aria-controls="${menu.id}"]`);
+      closeMenus();
+      owner?.focus({ preventScroll: true });
+    }
   }
 
   function setOverlay(selector, open) {
@@ -1439,14 +1504,14 @@
   }
 
   function bindEvents() {
-    document.querySelector(".toolbar").addEventListener("click", (event) => {
+    const toolbar = document.querySelector(".toolbar");
+    toolbar.addEventListener("click", (event) => {
       const toggle = event.target.closest(".dropdown-toggle");
-      if (!toggle) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      toggleMenu(toggle);
-    }, true);
-    document.querySelector(".toolbar").addEventListener("click", (event) => {
+      if (toggle) {
+        event.preventDefault();
+        toggleMenu(toggle);
+        return;
+      }
       const mode = event.target.closest("[data-mode]");
       const action = event.target.closest("[data-action]");
       const themeChoice = event.target.closest("[data-theme-value]");
@@ -1464,6 +1529,7 @@
       }
       if (event.target.closest(".dropdown-menu button")) closeMenus();
     });
+    toolbar.addEventListener("keydown", handleMenuKeydown);
     document.addEventListener("click", (event) => { if (!event.target.closest(".toolbar .dropdown")) closeMenus(); });
     document.addEventListener("click", (event) => {
       const trigger = event.target.closest("[data-overlay]");
@@ -1596,8 +1662,9 @@
   setMode("select");
   let restoredDraft = false;
   try {
-    const draft = localStorage.getItem(DRAFT_KEY);
+    const draft = localStorage.getItem(PROJECT_KEY) || localStorage.getItem(LEGACY_DRAFT_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (draft) { loadProject(JSON.parse(draft), "Restored your local draft ✓"); restoredDraft = true; }
   } catch {}
-  if (!restoredDraft) requestAnimationFrame(fitToScreen);
+  if (!restoredDraft) requestAnimationFrame(() => { fitToScreen(); persistLocal(); });
+  else persistLocal();
 })();

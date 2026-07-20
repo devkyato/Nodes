@@ -1,20 +1,21 @@
-# ◈ Flowchart Creator
+# ◈ Nodes — Private Flowcharts
 
 ![Nodes — Flowchart Creator repository cover by @dev.mako](docs/assets/github-cover.png)
 
 [![CI](https://github.com/devkyato/Nodes/actions/workflows/ci.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/ci.yml)
-[![Pages](https://github.com/devkyato/Nodes/actions/workflows/pages.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/pages.yml)
+[![Vercel](https://img.shields.io/badge/live-nodesss.xyz-black.svg)](https://nodesss.xyz/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A compact, browser-based flowchart editor built with HTML, vanilla JavaScript, SVG, Tailwind CSS, and FlyonUI. The published app has no runtime services, sends no diagram data to a server, and keeps projects private to the browser.
 
-[✨ Open Flowchart Creator](https://devkyato.github.io/Nodes/)
+[✨ Open Nodes](https://nodesss.xyz/)
 
 Built and maintained by [@dev.mako](https://github.com/devkyato) (`devkyato`). I made this as a practical, private diagram tool: fast enough to open for a five-minute sketch, capable enough to keep using when the flow gets real, and simple enough to understand without a manual.
 
 ## ✨ Highlights
 
 - Twelve standard flowchart symbols with accurate SVG geometry
+- A local home workspace for creating, finding, duplicating, and deleting multiple flowcharts
 - Direct multiline text editing and standalone text
 - Straight, orthogonal, and curved connectors that stay attached
 - Multi-selection, alignment, distribution, grouping, and layer controls
@@ -60,13 +61,15 @@ Then open `http://127.0.0.1:4173`.
 ## 📁 Project files
 
 ```text
-index.html          Application structure
+index.html          Local project library and home page
+editor.html         Flowchart editor structure
+home.js             Multi-project local browser storage
 style.css           Interface and responsive styling
 script.js           State, rendering, interaction, persistence, export
 src/flyon.css       Tailwind and FlyonUI build entrypoint
 scripts/            Dependency-free local server and build packaging
 tests/              Headless-browser workflow verification
-.github/            CI, Pages, releases, and contribution templates
+.github/            Manual CI, releases, and contribution templates
 docs/               Architecture and release notes for maintainers
 ```
 

@@ -121,7 +121,7 @@ try {
   await client.connect();
   await Promise.all([client.send("Page.enable"), client.send("Runtime.enable"), client.send("Log.enable")]);
   const loaded = client.wait("Page.loadEventFired");
-  await client.send("Page.navigate", { url: `http://127.0.0.1:${serverPort}` });
+  await client.send("Page.navigate", { url: `http://127.0.0.1:${serverPort}/editor.html?project=browser-smoke` });
   await loaded;
 
   const initial = await client.evaluate(`({
@@ -132,7 +132,7 @@ try {
     edges: document.querySelectorAll('#edge-layer .edge').length,
     overlay: Boolean(document.querySelector('[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay'))
   })`);
-  assert(initial.title === "Flowchart Creator", "Document title is incorrect");
+  assert(initial.title === "Editor · Nodes", "Document title is incorrect");
   assert(initial.textLength > 50, "Page content is unexpectedly blank");
   assert(initial.shapes === 12, "Shape palette did not render all symbols");
   assert(initial.nodes === 8 && initial.edges === 7, "Starter diagram did not render correctly");
@@ -157,7 +157,7 @@ try {
     document.querySelector('[data-settings-tab="canvas"]').click();
     const grid = document.querySelector('#settings-grid-toggle');
     grid.checked = false; grid.dispatchEvent(new Event('change', { bubbles: true }));
-    const gridHidden = document.querySelector('.grid').hidden;
+    const gridHidden = document.querySelector('.grid').hasAttribute('hidden');
     grid.checked = true; grid.dispatchEvent(new Event('change', { bubbles: true }));
     document.querySelector('[data-settings-tab="behavior"]').click();
     const connector = document.querySelector('#default-connector');
@@ -182,7 +182,7 @@ try {
     document.querySelector('[aria-label="Close settings"]').click();
     return { settingsVisible, gridHidden, reduced, stored, commandVisible, visibleCommands, routedToSettings };
   })()`);
-  assert(uiSystem.settingsVisible && uiSystem.gridHidden && uiSystem.reduced, "Settings modal did not control the workspace");
+  assert(uiSystem.settingsVisible && uiSystem.gridHidden && uiSystem.reduced, `Settings modal did not control the workspace: ${JSON.stringify(uiSystem)}`);
   assert(uiSystem.stored.defaultConnector === "curved" && uiSystem.stored.defaultArrow === "diamond", "Editor preferences did not persist");
   assert(uiSystem.commandVisible && uiSystem.visibleCommands === 1 && uiSystem.routedToSettings, "Command menu search or routing failed");
 
@@ -210,7 +210,7 @@ try {
     return {
       nodes: document.querySelectorAll('#node-layer .node').length,
       panel: !document.querySelector('#properties-panel').hidden,
-      draft: Boolean(localStorage.getItem('flowchart-creator-draft-v1'))
+      draft: Boolean(localStorage.getItem('nodes-project-v1:browser-smoke'))
     };
   })()`);
   assert(afterAdd.nodes === 9 && afterAdd.panel && afterAdd.draft, "Adding a shape did not update or autosave the editor");
@@ -270,7 +270,7 @@ try {
     const handlesWhileLocked = document.querySelectorAll('[data-resize-id]').length;
     toolbar.querySelector('[data-context-action="lock"]').click();
     document.querySelector('[data-view-action="grid"]').click();
-    const gridHidden = document.querySelector('.grid').hidden;
+    const gridHidden = document.querySelector('.grid').hasAttribute('hidden');
     document.querySelector('[data-view-action="grid"]').click();
     document.querySelector('#project-menu').click();
     document.querySelector('#theme-toggle').click();
@@ -328,7 +328,7 @@ try {
     document.querySelector('[data-action="export-svg"]').click();
     document.querySelector('[data-action="export-png"]').click();
   })()`);
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  await new Promise((resolve) => setTimeout(resolve, 2000));
   const downloads = readdirSync(profile);
   const svgDownload = downloads.find((name) => name.endsWith(".svg"));
   const xmlDownload = downloads.find((name) => name.endsWith(".xml"));
@@ -365,13 +365,34 @@ try {
     const controls = [...document.querySelectorAll('.toolbar [data-mode], #arrange-menu, #view-menu, #project-menu, #theme-toggle, .toolbar button[title="Settings"], .toolbar button[title="Keyboard shortcuts"]')];
     resolve(controls.map((control) => {
       const rect = control.getBoundingClientRect();
-      return { label: control.getAttribute('aria-label') || control.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, visible: getComputedStyle(control).display !== 'none' };
+      return { label: control.getAttribute('aria-label') || control.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height, visible: getComputedStyle(control).display !== 'none' };
     }));
   }))`);
-  assert(mobileToolbar.every((control) => control.visible && control.left >= 0 && control.right <= 390 && control.top >= 0 && control.bottom <= 118), `Mobile toolbar controls are clipped: ${JSON.stringify(mobileToolbar)}`);
+  assert(mobileToolbar.every((control) => control.visible && control.width >= 20 && control.height >= 20 && control.left >= 0 && control.right <= 390 && control.top >= 0 && control.bottom <= 118), `Mobile toolbar controls are clipped: ${JSON.stringify(mobileToolbar)}`);
+
+  await client.send("Emulation.clearDeviceMetricsOverride");
+  const homeLoaded = client.wait("Page.loadEventFired");
+  await client.send("Page.navigate", { url: `http://127.0.0.1:${serverPort}/` });
+  await homeLoaded;
+  const library = await client.evaluate(`(() => {
+    const card = document.querySelector('[data-project-id="browser-smoke"]');
+    const originalCount = document.querySelectorAll('.project-card').length;
+    card.querySelector('[data-duplicate-project]').click();
+    const duplicatedCount = document.querySelectorAll('.project-card').length;
+    document.querySelector('[data-new-project]').click();
+    const modalVisible = !document.querySelector('#new-project-modal').classList.contains('hidden');
+    document.querySelector('[data-close-new-project]').click();
+    const search = document.querySelector('#project-search');
+    search.value = 'no such flowchart';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    const noResults = Boolean(document.querySelector('.library-no-results'));
+    return { title: document.title, card: Boolean(card), originalCount, duplicatedCount, modalVisible, noResults, databaseCopy: document.body.innerText.includes('No database') };
+  })()`);
+  assert(library.title === "Nodes · Private flowcharts" && library.card, `Project library did not render: ${JSON.stringify(library)}`);
+  assert(library.duplicatedCount === library.originalCount + 1 && library.modalVisible && library.noResults && library.databaseCopy, "Project library controls failed");
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
-  console.log("Browser smoke test passed: FlyonUI settings, commands, themes, locking, menus, modals, rendering, connectors, persistence, XML/JSON projects, and SVG/PNG export.");
+  console.log("Browser smoke test passed: local project library, settings, commands, themes, locking, menus, modals, rendering, connectors, persistence, XML/JSON projects, and SVG/PNG export.");
 } finally {
   client?.close();
   browser.kill();
