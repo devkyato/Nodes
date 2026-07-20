@@ -1,5 +1,7 @@
 # Flowchart Creator
 
+![Nodes — Flowchart Creator repository cover by @dev.mako](docs/assets/github-cover.png)
+
 [![CI](https://github.com/devkyato/Nodes/actions/workflows/ci.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/ci.yml)
 [![Pages](https://github.com/devkyato/Nodes/actions/workflows/pages.yml/badge.svg)](https://github.com/devkyato/Nodes/actions/workflows/pages.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
