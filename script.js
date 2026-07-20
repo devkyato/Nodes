@@ -5,6 +5,8 @@
   const CANVAS = { width: 2400, height: 1600, padding: 16 };
   const GRID_SIZE = 20;
   const STORAGE_KEY = "flowchart-creator-project-v1";
+  const DRAFT_KEY = "flowchart-creator-draft-v1";
+  const THEME_KEY = "flowchart-creator-theme";
   const DEFAULT_NODE_STYLE = Object.freeze({
     fill: "#ffffff",
     stroke: "#475569",
@@ -62,7 +64,9 @@
     selectionStatus: document.querySelector("#selection-status"),
     snap: document.querySelector("#snap-toggle"),
     editor: document.querySelector("#inline-editor"),
-    fileInput: document.querySelector("#file-input")
+    fileInput: document.querySelector("#file-input"),
+    theme: document.querySelector("#theme-toggle"),
+    themeColor: document.querySelector("#theme-color")
   };
 
   let state = createInitialState();
@@ -139,6 +143,7 @@
     state.history.push(current);
     if (state.history.length > 100) state.history.shift();
     state.historyIndex = state.history.length - 1;
+    persistLocal();
     setStatus(message);
     updateToolbar();
   }
@@ -967,9 +972,14 @@
     render(); setStatus(message);
   }
 
+  function persistLocal() {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(projectData())); } catch {}
+  }
+
   function saveLocal() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData()));
-    setStatus("Saved in this browser");
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projectData())); } catch {}
+    persistLocal();
+    setStatus("Saved safely in this browser ✓");
   }
 
   function loadLocal() {
@@ -993,6 +1003,107 @@
   function downloadJson() {
     downloadBlob(new Blob([JSON.stringify(projectData(), null, 2)], { type: "application/json" }), safeFileName("json"));
     setStatus("Downloaded project JSON");
+  }
+
+  function projectXml() {
+    const documentNode = document.implementation.createDocument("", "flowchart-project", null);
+    const root = documentNode.documentElement;
+    root.setAttribute("version", "1");
+    root.setAttribute("generator", "Nodes by @dev.mako");
+
+    const metadata = documentNode.createElement("metadata");
+    const title = documentNode.createElement("title");
+    title.textContent = state.documentTitle;
+    metadata.append(title);
+    root.append(metadata);
+
+    const viewport = documentNode.createElement("viewport");
+    Object.entries({
+      width: CANVAS.width, height: CANVAS.height, zoom: state.zoom,
+      "pan-x": state.pan.x, "pan-y": state.pan.y, snap: state.snap
+    }).forEach(([name, value]) => viewport.setAttribute(name, String(value)));
+    root.append(viewport);
+
+    const nodes = documentNode.createElement("nodes");
+    state.nodes.forEach((node) => {
+      const item = documentNode.createElement("node");
+      ["id", "type", "x", "y", "width", "height", "rotation", "zIndex", "groupId"].forEach((name) => {
+        if (node[name] !== null && node[name] !== undefined) item.setAttribute(name, String(node[name]));
+      });
+      const text = documentNode.createElement("text");
+      text.textContent = node.text || "";
+      const style = documentNode.createElement("style");
+      Object.entries(node.style || {}).forEach(([name, value]) => style.setAttribute(name, String(value)));
+      item.append(text, style);
+      nodes.append(item);
+    });
+    root.append(nodes);
+
+    const edges = documentNode.createElement("edges");
+    state.edges.forEach((edge) => {
+      const item = documentNode.createElement("edge");
+      ["id", "fromNodeId", "fromPort", "toNodeId", "toPort", "type"].forEach((name) => item.setAttribute(name, String(edge[name] || "")));
+      const label = documentNode.createElement("label");
+      label.textContent = edge.label || "";
+      const style = documentNode.createElement("style");
+      Object.entries(edge.style || {}).forEach(([name, value]) => style.setAttribute(name, String(value)));
+      item.append(label, style);
+      edges.append(item);
+    });
+    root.append(edges);
+
+    return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(documentNode)}`;
+  }
+
+  function projectFromXml(source) {
+    const documentNode = new DOMParser().parseFromString(source, "application/xml");
+    if (documentNode.querySelector("parsererror") || documentNode.documentElement.localName !== "flowchart-project") throw new Error("Invalid XML project");
+    const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+    const styleFrom = (element, defaults) => {
+      const style = { ...defaults };
+      Array.from(element?.attributes || []).forEach(({ name, value }) => {
+        if (["strokeWidth", "opacity", "fontSize", "cornerRadius"].includes(name)) style[name] = number(value, defaults[name]);
+        else if (name === "italic") style[name] = value === "true";
+        else style[name] = value;
+      });
+      return style;
+    };
+    const viewport = documentNode.querySelector("viewport");
+    const nodes = Array.from(documentNode.querySelectorAll("nodes > node")).map((item, index) => ({
+      id: item.getAttribute("id") || uid("node"),
+      type: item.getAttribute("type") || "process",
+      x: number(item.getAttribute("x")), y: number(item.getAttribute("y")),
+      width: number(item.getAttribute("width"), DEFAULT_SIZES.process[0]),
+      height: number(item.getAttribute("height"), DEFAULT_SIZES.process[1]),
+      rotation: number(item.getAttribute("rotation")),
+      text: item.querySelector("text")?.textContent || "",
+      style: styleFrom(item.querySelector("style"), DEFAULT_NODE_STYLE),
+      zIndex: number(item.getAttribute("zIndex"), index),
+      groupId: item.getAttribute("groupId") || null
+    }));
+    const edges = Array.from(documentNode.querySelectorAll("edges > edge")).map((item) => ({
+      id: item.getAttribute("id") || uid("edge"),
+      fromNodeId: item.getAttribute("fromNodeId") || "",
+      fromPort: item.getAttribute("fromPort") || "bottom",
+      toNodeId: item.getAttribute("toNodeId") || "",
+      toPort: item.getAttribute("toPort") || "top",
+      type: item.getAttribute("type") || "straight",
+      label: item.querySelector("label")?.textContent || "",
+      style: styleFrom(item.querySelector("style"), DEFAULT_EDGE_STYLE)
+    }));
+    return {
+      version: number(documentNode.documentElement.getAttribute("version"), 1),
+      documentTitle: documentNode.querySelector("metadata > title")?.textContent || "Untitled Flowchart",
+      nodes, edges,
+      zoom: number(viewport?.getAttribute("zoom"), 1),
+      pan: { x: number(viewport?.getAttribute("pan-x")), y: number(viewport?.getAttribute("pan-y")) },
+      snap: viewport?.getAttribute("snap") !== "false"
+    };
+  }
+
+  function downloadXml() {
+    downloadBlob(new Blob([projectXml()], { type: "application/xml;charset=utf-8" }), safeFileName("xml"));
+    setStatus("Downloaded portable XML project");
   }
 
   function exportSvgString() {
@@ -1045,7 +1156,8 @@
       undo, redo, delete: deleteSelection, duplicate: duplicateSelection, clear: clearCanvas,
       "zoom-out": () => zoomAt(1 / 1.15), "zoom-in": () => zoomAt(1.15), "zoom-reset": () => { state.zoom = 1; render(); },
       fit: fitToScreen, save: saveLocal, load: loadLocal, "download-json": downloadJson,
-      "import-json": () => refs.fileInput.click(), "export-svg": exportSvg, "export-png": exportPng
+      "download-xml": downloadXml, "import-project": () => refs.fileInput.click(),
+      "export-svg": exportSvg, "export-png": exportPng, theme: toggleTheme
     };
     actions[action]?.();
   }
@@ -1062,6 +1174,30 @@
   }
 
   function setStatus(message) { refs.status.textContent = message; }
+
+  function applyTheme(theme, persist = true) {
+    const next = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    refs.theme.innerHTML = next === "dark" ? "☀️ <span>Light</span>" : "🌙 <span>Dark</span>";
+    refs.theme.setAttribute("aria-label", `Switch to ${next === "dark" ? "light" : "dark"} mode`);
+    refs.theme.title = `Switch to ${next === "dark" ? "light" : "dark"} mode`;
+    refs.themeColor.content = next === "dark" ? "#171b21" : "#f7f8fa";
+    if (persist) {
+      try { localStorage.setItem(THEME_KEY, next); } catch {}
+    }
+  }
+
+  function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch {}
+    applyTheme(saved || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"), false);
+  }
+
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    setStatus(`${next === "dark" ? "Dark" : "Light"} mode is on ${next === "dark" ? "🌙" : "☀️"}`);
+  }
 
   function onKeyDown(event) {
     const typing = /INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
@@ -1139,7 +1275,12 @@
     refs.fileInput.addEventListener("change", async () => {
       const file = refs.fileInput.files[0]; refs.fileInput.value = "";
       if (!file) return;
-      try { loadProject(JSON.parse(await file.text()), "Imported project"); } catch { setStatus("That file is not a valid project"); }
+      try {
+        const source = await file.text();
+        const isXml = file.name.toLowerCase().endsWith(".xml") || source.trimStart().startsWith("<");
+        loadProject(isXml ? projectFromXml(source) : JSON.parse(source), `Imported ${isXml ? "XML" : "JSON"} project ✓`);
+        persistLocal();
+      } catch { setStatus("That file is not a valid JSON or XML project"); }
     });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -1150,10 +1291,16 @@
     }).observe(refs.shell);
   }
 
+  initTheme();
   createShapePalette();
   bindEvents();
   refs.title.value = state.documentTitle;
   refs.snap.checked = state.snap;
   setMode("select");
-  requestAnimationFrame(fitToScreen);
+  let restoredDraft = false;
+  try {
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) { loadProject(JSON.parse(draft), "Restored your local draft ✓"); restoredDraft = true; }
+  } catch {}
+  if (!restoredDraft) requestAnimationFrame(fitToScreen);
 })();

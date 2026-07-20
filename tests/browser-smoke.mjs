@@ -138,6 +138,18 @@ try {
   assert(initial.nodes === 8 && initial.edges === 7, "Starter diagram did not render correctly");
   assert(!initial.overlay, "An error overlay is visible");
 
+  const theme = await client.evaluate(`(() => {
+    const before = document.documentElement.dataset.theme;
+    document.querySelector('[data-action="theme"]').click();
+    const after = document.documentElement.dataset.theme;
+    const saved = localStorage.getItem('flowchart-creator-theme');
+    const label = document.querySelector('[data-action="theme"]').getAttribute('aria-label');
+    document.querySelector('[data-action="theme"]').click();
+    return { before, after, saved, label };
+  })()`);
+  assert(theme.before !== theme.after && theme.saved === theme.after, "Theme switching did not persist");
+  assert(theme.label.includes(theme.after === "dark" ? "light" : "dark"), "Theme toggle label did not update");
+
   const connectionResult = await client.evaluate(`(() => {
     document.querySelector('[data-mode="connect"]').click();
     const svg = document.querySelector('#canvas');
@@ -159,9 +171,13 @@ try {
 
   const afterAdd = await client.evaluate(`(() => {
     document.querySelector('[data-shape="decision"]').click();
-    return { nodes: document.querySelectorAll('#node-layer .node').length, panel: !document.querySelector('#properties-panel').hidden };
+    return {
+      nodes: document.querySelectorAll('#node-layer .node').length,
+      panel: !document.querySelector('#properties-panel').hidden,
+      draft: Boolean(localStorage.getItem('flowchart-creator-draft-v1'))
+    };
   })()`);
-  assert(afterAdd.nodes === 9 && afterAdd.panel, "Adding a shape did not update the editor");
+  assert(afterAdd.nodes === 9 && afterAdd.panel && afterAdd.draft, "Adding a shape did not update or autosave the editor");
 
   const edited = await client.evaluate(`(() => {
     document.querySelector('#node-layer .node:last-child').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -246,18 +262,44 @@ try {
   assert(edgeLabel === "Approved path", "Connector label editing failed");
 
   await client.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: profile });
-  await client.evaluate(`(() => { document.querySelector('[data-action="export-svg"]').click(); document.querySelector('[data-action="export-png"]').click(); })()`);
+  await client.evaluate(`(() => {
+    document.querySelector('[data-action="download-xml"]').click();
+    document.querySelector('[data-action="export-svg"]').click();
+    document.querySelector('[data-action="export-png"]').click();
+  })()`);
   await new Promise((resolve) => setTimeout(resolve, 800));
   const downloads = readdirSync(profile);
   const svgDownload = downloads.find((name) => name.endsWith(".svg"));
+  const xmlDownload = downloads.find((name) => name.endsWith(".xml"));
   assert(svgDownload, "SVG export did not download");
+  assert(xmlDownload, "XML project export did not download");
   assert(downloads.some((name) => name.endsWith(".png")), "PNG export did not download");
   const exportedSvg = readFileSync(join(profile, svgDownload), "utf8");
+  const exportedXml = readFileSync(join(profile, xmlDownload), "utf8");
   assert(exportedSvg.includes("Approved path") && exportedSvg.includes('fill="#ffffff"'), "SVG export did not preserve connector label styling");
   assert(!exportedSvg.includes("edge-hit"), "SVG export included editor-only hit targets");
+  assert(exportedXml.includes("<flowchart-project") && exportedXml.includes("Approved path"), "XML project export is incomplete");
+
+  const xmlImport = await client.evaluate(`(() => new Promise((resolve) => {
+    document.querySelector('[data-action="clear"]').click();
+    const input = document.querySelector('#file-input');
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([${JSON.stringify(exportedXml)}], 'roundtrip.xml', { type: 'application/xml' }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const started = Date.now();
+    const check = () => {
+      const status = document.querySelector('#status-text').textContent;
+      if (status.includes('Imported XML') || Date.now() - started > 3000) {
+        resolve({ status, nodes: document.querySelectorAll('#node-layer .node').length, edges: document.querySelectorAll('#edge-layer .edge').length });
+      } else setTimeout(check, 25);
+    };
+    check();
+  }))()`);
+  assert(xmlImport.status.includes("Imported XML") && xmlImport.nodes === 10 && xmlImport.edges === 7, `XML round-trip failed: ${JSON.stringify(xmlImport)}`);
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
-  console.log("Browser smoke test passed: rendering, connectors, zoom, drag, resize, text, history, persistence, and export.");
+  console.log("Browser smoke test passed: themes, rendering, connectors, zoom, drag, resize, text, history, local persistence, XML/JSON projects, and SVG/PNG export.");
 } finally {
   client?.close();
   browser.kill();
