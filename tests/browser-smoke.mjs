@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -235,12 +235,26 @@ try {
   })()`);
   assert(persistence.cleared === 0 && persistence.loaded === 10, "Local save and load failed");
 
+  const edgeLabel = await client.evaluate(`(() => {
+    const edge = document.querySelector('#edge-layer .edge');
+    edge.querySelector('.edge-hit').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 4 }));
+    const input = document.querySelector('[data-edge-prop="label"]');
+    input.value = 'Approved path';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return document.querySelector('#edge-layer .edge .edge-label')?.textContent;
+  })()`);
+  assert(edgeLabel === "Approved path", "Connector label editing failed");
+
   await client.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: profile });
   await client.evaluate(`(() => { document.querySelector('[data-action="export-svg"]').click(); document.querySelector('[data-action="export-png"]').click(); })()`);
   await new Promise((resolve) => setTimeout(resolve, 800));
   const downloads = readdirSync(profile);
-  assert(downloads.some((name) => name.endsWith(".svg")), "SVG export did not download");
+  const svgDownload = downloads.find((name) => name.endsWith(".svg"));
+  assert(svgDownload, "SVG export did not download");
   assert(downloads.some((name) => name.endsWith(".png")), "PNG export did not download");
+  const exportedSvg = readFileSync(join(profile, svgDownload), "utf8");
+  assert(exportedSvg.includes("Approved path") && exportedSvg.includes('fill="#ffffff"'), "SVG export did not preserve connector label styling");
+  assert(!exportedSvg.includes("edge-hit"), "SVG export included editor-only hit targets");
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
   console.log("Browser smoke test passed: rendering, connectors, zoom, drag, resize, text, history, persistence, and export.");

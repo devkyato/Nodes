@@ -323,7 +323,7 @@
     if (edge.label) {
       const point = edgeLabelPoint(edge);
       const width = Math.max(34, edge.label.length * 7 + 10);
-      group.append(svgEl("rect", { class: "edge-label-bg", x: point.x - width / 2, y: point.y - 12, width, height: 22, rx: 3 }));
+      group.append(svgEl("rect", { class: "edge-label-bg", x: point.x - width / 2, y: point.y - 12, width, height: 22, rx: 3, fill: "#ffffff", opacity: .92 }));
       group.append(svgEl("text", { class: "edge-label", x: point.x, y: point.y + 4, "text-anchor": "middle", "font-size": 12, fill: "#334155", "data-text-edge": edge.id }, edge.label));
     }
     parent.append(group);
