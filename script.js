@@ -33,7 +33,9 @@
     italic: false,
     textAlign: "center",
     textColor: "#1f2937",
-    cornerRadius: 6
+    cornerRadius: 10,
+    fontFamily: "inter",
+    shadow: "soft"
   });
   const DEFAULT_EDGE_STYLE = Object.freeze({
     stroke: "#475569",
@@ -287,7 +289,7 @@
     const startY = node.height / 2 - ((lines.length - 1) * lineHeight) / 2 + fontSize * .34;
     const text = svgEl("text", {
       x, y: startY, fill: style.textColor || "#1f2937", "font-size": fontSize,
-      "font-family": "Inter, ui-sans-serif, system-ui, sans-serif", "font-weight": style.fontWeight,
+      "font-family": ({ mono: "ui-monospace, SFMono-Regular, Consolas, monospace", serif: "Georgia, Times New Roman, serif", rounded: "ui-rounded, Nunito, Inter, sans-serif" }[style.fontFamily] || "Inter, ui-sans-serif, system-ui, sans-serif"), "font-weight": style.fontWeight,
       "font-style": style.italic ? "italic" : "normal", "text-anchor": anchor,
       "data-text-node": node.id, "pointer-events": "auto"
     });
@@ -300,6 +302,10 @@
       class: `node${node.locked ? " locked" : ""}`, "data-node-id": node.id, "data-locked": String(Boolean(node.locked)),
       transform: `translate(${node.x} ${node.y}) rotate(${node.rotation || 0} ${node.width / 2} ${node.height / 2})`
     });
+    if (node.style?.shadow && node.style.shadow !== "none") {
+      const shadows = { soft: "drop-shadow(0 7px 12px rgba(15,23,42,.16))", strong: "drop-shadow(0 12px 20px rgba(15,23,42,.28))", glow: `drop-shadow(0 0 12px ${node.style.stroke || "#118dcc"})` };
+      group.setAttribute("style", `filter:${shadows[node.style.shadow] || shadows.soft}`);
+    }
     if (node.type !== "text") geometryElements(node).forEach((element) => group.append(element));
     appendNodeText(group, node);
     parent.append(group);
@@ -385,6 +391,8 @@
     [...state.nodes].sort((a, b) => a.zIndex - b.zIndex).forEach((node) => renderNodeInto(node, refs.nodeLayer));
     renderOverlays();
     refs.zoom.textContent = `${Math.round(state.zoom * 100)}%`;
+    const nativeZoom = document.querySelector("#native-zoom-display");
+    if (nativeZoom) nativeZoom.textContent = `${Math.round(state.zoom * 100)}%`;
     refs.selectionStatus.textContent = `${state.selectedIds.length} selected`;
     refs.shell.dataset.mode = state.mode;
     refs.grid.toggleAttribute("hidden", state.showGrid === false);
@@ -857,8 +865,9 @@
   function renderProperties() {
     const nodes = selectedNodes();
     const edges = selectedEdges();
-    refs.properties.hidden = !state.selectedIds.length;
-    if (!state.selectedIds.length) return;
+    refs.properties.hidden = false;
+    refs.properties.classList.toggle("inspector-empty", !state.selectedIds.length);
+    if (!state.selectedIds.length) return renderCanvasProperties();
     if (nodes.length > 1 && !edges.length) return renderMultiProperties(nodes);
     if (nodes.length === 1 && !edges.length) return renderNodeProperties(nodes[0]);
     if (edges.length === 1 && !nodes.length) return renderEdgeProperties(edges[0]);
@@ -868,26 +877,41 @@
 
   function option(value, label, current) { return `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`; }
 
+  function renderCanvasProperties() {
+    refs.propertiesTitle.textContent = "Canvas";
+    refs.propertiesContent.innerHTML = `
+      <div class="inspector-intro"><strong>Make it yours</strong><span>Select any shape to customize color, type, borders, shadow, position, and more.</span></div>
+      <section class="property-section"><div class="property-section-title">Canvas</div>
+        <div class="inspector-action-stack"><button data-action="fit">Fit diagram</button><button data-view-action="grid">${state.showGrid === false ? "Show" : "Hide"} grid</button><button data-view-action="snap">${state.snap ? "Disable" : "Enable"} snap</button></div>
+      </section>
+      <section class="property-section"><div class="property-section-title">Appearance</div><div class="theme-inline-grid"><button data-theme-value="light">Light</button><button data-theme-value="dark">Dark</button><button data-theme-value="system">System</button></div></section>
+      <section class="property-section"><div class="property-section-title">Quick start</div><p class="inspector-help">Choose a shape on the left, then click the canvas to place it. Double-click any shape to edit its text.</p></section>`;
+  }
+
   function renderNodeProperties(node) {
     const style = node.style;
     refs.propertiesTitle.textContent = node.type === "text" ? "Text" : "Shape";
     refs.propertiesContent.innerHTML = `
-      ${node.type === "text" ? "" : `<section class="property-section"><div class="property-section-title">Appearance</div>
+      ${node.type === "text" ? "" : `<section class="property-section"><div class="property-section-title">Style presets</div>
+        <div class="style-preset-grid"><button data-style-preset="paper"><i style="--swatch:#fff"></i>Paper</button><button data-style-preset="ink"><i style="--swatch:#17191d"></i>Ink</button><button data-style-preset="ocean"><i style="--swatch:#dff4ff"></i>Ocean</button><button data-style-preset="violet"><i style="--swatch:#ede9fe"></i>Violet</button><button data-style-preset="mint"><i style="--swatch:#dcfce7"></i>Mint</button><button data-style-preset="sunset"><i style="--swatch:#ffedd5"></i>Sunset</button></div>
+      </section><section class="property-section"><div class="property-section-title">Appearance</div>
         <div class="property-row"><label>Fill</label><input type="color" data-prop="fill" value="${style.fill}"></div>
         <div class="property-row"><label>Border</label><input type="color" data-prop="stroke" value="${style.stroke}"></div>
         <div class="property-row"><label>Width</label><input type="number" data-prop="strokeWidth" value="${style.strokeWidth}" min="0" max="12" step="0.5"></div>
         <div class="property-row"><label>Style</label><select data-prop="strokeStyle">${option("solid", "Solid", style.strokeStyle)}${option("dashed", "Dashed", style.strokeStyle)}${option("dotted", "Dotted", style.strokeStyle)}</select></div>
         <div class="property-row"><label>Opacity</label><input type="number" data-prop="opacity" value="${style.opacity}" min="0.1" max="1" step="0.1"></div>
+        <div class="property-row"><label>Shadow</label><select data-prop="shadow">${option("none", "None", style.shadow)}${option("soft", "Soft", style.shadow)}${option("strong", "Strong", style.shadow)}${option("glow", "Glow", style.shadow)}</select></div>
         ${["process", "terminator"].includes(node.type) ? `<div class="property-row"><label>Radius</label><input type="number" data-prop="cornerRadius" value="${style.cornerRadius}" min="0" max="40"></div>` : ""}
       </section>`}
       <section class="property-section"><div class="property-section-title">Text</div>
+        <div class="property-row"><label>Typeface</label><select data-prop="fontFamily">${option("inter", "Modern", style.fontFamily)}${option("rounded", "Rounded", style.fontFamily)}${option("mono", "Mono", style.fontFamily)}${option("serif", "Editorial", style.fontFamily)}</select></div>
         <div class="property-row"><label>Size</label><input type="number" data-prop="fontSize" value="${style.fontSize}" min="8" max="72"></div>
         <div class="property-row"><label>Color</label><input type="color" data-prop="textColor" value="${style.textColor}"></div>
         <div class="property-row"><label>Style</label><div class="segment"><button data-prop-button="fontWeight" data-value="${style.fontWeight === "700" ? "400" : "700"}" class="${style.fontWeight === "700" ? "active" : ""}"><b>B</b></button><button data-prop-button="italic" data-value="${!style.italic}" class="${style.italic ? "active" : ""}"><i>I</i></button></div></div>
         <div class="property-row"><label>Align</label><div class="segment"><button data-prop-button="textAlign" data-value="left" class="${style.textAlign === "left" ? "active" : ""}">L</button><button data-prop-button="textAlign" data-value="center" class="${style.textAlign === "center" ? "active" : ""}">C</button><button data-prop-button="textAlign" data-value="right" class="${style.textAlign === "right" ? "active" : ""}">R</button></div></div>
       </section>
       <section class="property-section"><div class="property-section-title">Position & size</div>
-        <div class="two-col"><div class="mini-field"><label>X</label><input type="number" data-node-prop="x" value="${Math.round(node.x)}"></div><div class="mini-field"><label>Y</label><input type="number" data-node-prop="y" value="${Math.round(node.y)}"></div><div class="mini-field"><label>Width</label><input type="number" data-node-prop="width" value="${Math.round(node.width)}" min="40"></div><div class="mini-field"><label>Height</label><input type="number" data-node-prop="height" value="${Math.round(node.height)}" min="28"></div></div>
+        <div class="two-col"><div class="mini-field"><label>X</label><input type="number" data-node-prop="x" value="${Math.round(node.x)}"></div><div class="mini-field"><label>Y</label><input type="number" data-node-prop="y" value="${Math.round(node.y)}"></div><div class="mini-field"><label>Width</label><input type="number" data-node-prop="width" value="${Math.round(node.width)}" min="40"></div><div class="mini-field"><label>Height</label><input type="number" data-node-prop="height" value="${Math.round(node.height)}" min="28"></div><div class="mini-field"><label>Rotate</label><input type="number" data-node-prop="rotation" value="${Math.round(node.rotation || 0)}" step="1"></div></div>
       </section>
       <section class="property-section"><div class="property-section-title">Layer</div><div class="property-actions"><button data-panel-action="front">Front</button><button data-panel-action="forward">Forward</button><button data-panel-action="backward">Backward</button><button data-panel-action="back">Back</button></div></section>
       <div class="property-actions"><button data-panel-action="duplicate">Duplicate</button><button data-panel-action="delete">Delete</button></div>`;
@@ -952,9 +976,17 @@
 
   function handlePropertiesClick(event) {
     const propButton = event.target.closest("[data-prop-button]");
+    const preset = event.target.closest("[data-style-preset]");
     const arrange = event.target.closest("[data-arrange]");
     const action = event.target.closest("[data-panel-action]");
-    if (propButton) {
+    const toolbarAction = event.target.closest("[data-action]");
+    const viewAction = event.target.closest("[data-view-action]");
+    const themeChoice = event.target.closest("[data-theme-value]");
+    if (preset) {
+      const node = selectedNodes()[0]; if (!node) return;
+      const presets = { paper: ["#ffffff", "#475569", "#172033"], ink: ["#17191d", "#6b7280", "#ffffff"], ocean: ["#dff4ff", "#0284c7", "#075985"], violet: ["#ede9fe", "#7c3aed", "#4c1d95"], mint: ["#dcfce7", "#16a34a", "#14532d"], sunset: ["#ffedd5", "#f97316", "#7c2d12"] };
+      const [fill, stroke, textColor] = presets[preset.dataset.stylePreset]; Object.assign(node.style, { fill, stroke, textColor }); commit("Applied style preset"); render();
+    } else if (propButton) {
       const node = selectedNodes()[0];
       if (!node) return;
       const key = propButton.dataset.propButton;
@@ -962,6 +994,9 @@
       commit("Changed text style"); render();
     } else if (arrange) arrangeSelection(arrange.dataset.arrange);
     else if (action) handlePanelAction(action.dataset.panelAction);
+    else if (toolbarAction) handleToolbar(toolbarAction.dataset.action);
+    else if (viewAction) handleViewAction(viewAction.dataset.viewAction);
+    else if (themeChoice) applyTheme(themeChoice.dataset.themeValue);
   }
 
   function arrangeSelection(kind) {
@@ -1528,9 +1563,13 @@
         setStatus(`${themeChoice.textContent.replace("✓", "").trim()} appearance selected`);
       }
       if (event.target.closest(".dropdown-menu button")) closeMenus();
+      if (event.target.closest(".native-menu-panel button")) document.querySelectorAll(".native-menu[open]").forEach((details) => details.removeAttribute("open"));
     });
     toolbar.addEventListener("keydown", handleMenuKeydown);
-    document.addEventListener("click", (event) => { if (!event.target.closest(".toolbar .dropdown")) closeMenus(); });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".toolbar .dropdown")) closeMenus();
+      if (!event.target.closest(".native-menu")) document.querySelectorAll(".native-menu[open]").forEach((details) => details.removeAttribute("open"));
+    });
     document.addEventListener("click", (event) => {
       const trigger = event.target.closest("[data-overlay]");
       if (!trigger) return;

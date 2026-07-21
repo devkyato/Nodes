@@ -76,6 +76,39 @@
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="connect" title="Connector tool (C)">⤴ Connect</button>
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="text" title="Text tool (T)">✎ Text</button>
       </div>
+      <div class="premium-toolbar-actions" aria-label="Editor actions">
+        <button type="button" class="topbar-action save-action" data-action="save" title="Save checkpoint (Ctrl+S)">✓ Saved locally</button>
+        <details class="native-menu">
+          <summary id="arrange-native">Arrange</summary>
+          <div class="native-menu-panel arrange-panel" role="menu" aria-labelledby="arrange-native">
+            <span class="native-menu-label">Align</span>
+            <div class="native-action-grid"><button data-arrange="left">Left</button><button data-arrange="center">Center</button><button data-arrange="right">Right</button><button data-arrange="top">Top</button><button data-arrange="middle">Middle</button><button data-arrange="bottom">Bottom</button></div>
+            <span class="native-menu-label">Selection</span>
+            <button data-panel-action="group">Group selection</button><button data-panel-action="ungroup">Ungroup</button><button data-panel-action="front">Bring to front</button><button data-panel-action="back">Send to back</button>
+          </div>
+        </details>
+        <details class="native-menu">
+          <summary id="view-native">View <span id="native-zoom-display">100%</span></summary>
+          <div class="native-menu-panel" role="menu" aria-labelledby="view-native">
+            <div class="native-zoom-row"><button data-action="zoom-out">−</button><button data-action="zoom-reset">100%</button><button data-action="zoom-in">＋</button></div>
+            <button data-action="fit">Fit diagram</button><button data-view-action="grid">Toggle grid</button><button data-view-action="snap">Toggle snap</button>
+          </div>
+        </details>
+        <details class="native-menu">
+          <summary id="export-native">Export</summary>
+          <div class="native-menu-panel export-panel" role="menu" aria-labelledby="export-native">
+            <span class="native-menu-label">Project</span>
+            <button data-action="download-json">Download JSON <small>Editable backup</small></button><button data-action="download-xml">Download XML <small>Structured project</small></button><button data-action="import-project">Import project</button>
+            <span class="native-menu-label">Image</span>
+            <button data-action="export-svg">Export SVG <small>Vector quality</small></button><button data-action="export-png">Export PNG <small>High resolution</small></button>
+          </div>
+        </details>
+        <details class="native-menu appearance-menu">
+          <summary aria-label="Appearance">◐</summary>
+          <div class="native-menu-panel" role="menu"><button data-theme-value="light">☀ Light</button><button data-theme-value="dark">◒ Dark</button><button data-theme-value="system">◐ System</button></div>
+        </details>
+        <button type="button" class="topbar-icon" title="Settings" aria-label="Settings" data-overlay="#settings-modal">⚙</button>
+      </div>
       <div class="toolbar-spacer"></div>
       <div class="toolbar-actions" aria-label="Workspace actions">
       <div class="dropdown relative inline-flex">
@@ -211,8 +244,8 @@
       </div>
     </main>
 
-    <aside id="properties-panel" class="properties-panel" aria-label="Properties" hidden>
-      <div class="panel-heading"><span id="properties-title">✨ Properties</span></div>
+    <aside id="properties-panel" class="properties-panel premium-inspector" aria-label="Design inspector">
+      <div class="panel-heading"><span id="properties-title">Design</span><span class="inspector-badge">Local</span></div>
       <div id="properties-content" class="properties-content"></div>
     </aside>
 

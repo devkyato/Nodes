@@ -186,6 +186,23 @@ try {
   assert(uiSystem.stored.defaultConnector === "curved" && uiSystem.stored.defaultArrow === "diamond", "Editor preferences did not persist");
   assert(uiSystem.commandVisible && uiSystem.visibleCommands === 1 && uiSystem.routedToSettings, "Command menu search or routing failed");
 
+  const nativeMenus = await client.evaluate(`(() => {
+    const view = document.querySelector('#view-native').closest('details');
+    document.querySelector('#view-native').click();
+    const opened = view.open;
+    view.querySelector('[data-view-action="grid"]').click();
+    const closedAfterAction = !view.open;
+    const gridHidden = document.querySelector('.grid').hasAttribute('hidden');
+    document.querySelector('#view-native').click();
+    view.querySelector('[data-view-action="grid"]').click();
+    const exportMenu = document.querySelector('#export-native').closest('details');
+    document.querySelector('#export-native').click();
+    const exportOpened = exportMenu.open;
+    document.body.click();
+    return { opened, closedAfterAction, gridHidden, exportOpened, closedOutside: !exportMenu.open };
+  })()`);
+  assert(nativeMenus.opened && nativeMenus.closedAfterAction && nativeMenus.gridHidden && nativeMenus.exportOpened && nativeMenus.closedOutside, `Native editor menus failed: ${JSON.stringify(nativeMenus)}`);
+
   const connectionResult = await client.evaluate(`(() => {
     document.querySelector('[data-mode="connect"]').click();
     const svg = document.querySelector('#canvas');
@@ -224,6 +241,19 @@ try {
     return { opened, text: document.querySelector('#node-layer .node:last-child text').textContent };
   })()`);
   assert(edited.opened && edited.text.includes("Approved?"), `Inline text editing failed: ${JSON.stringify(edited)}`);
+
+  const customization = await client.evaluate(`(() => {
+    document.querySelector('[data-style-preset="ocean"]').click();
+    const font = document.querySelector('[data-prop="fontFamily"]');
+    font.value = 'mono'; font.dispatchEvent(new Event('change', { bubbles: true }));
+    const shadow = document.querySelector('[data-prop="shadow"]');
+    shadow.value = 'strong'; shadow.dispatchEvent(new Event('change', { bubbles: true }));
+    const rotation = document.querySelector('[data-node-prop="rotation"]');
+    rotation.value = '12'; rotation.dispatchEvent(new Event('change', { bubbles: true }));
+    const node = document.querySelector('#node-layer .node:last-child');
+    return { fill: node.querySelector('.node-shape')?.getAttribute('fill'), transform: node.getAttribute('transform'), style: node.getAttribute('style'), font: node.querySelector('text')?.getAttribute('font-family') };
+  })()`);
+  assert(customization.fill === "#dff4ff" && customization.transform.includes("rotate(12") && customization.style.includes("drop-shadow") && customization.font.includes("ui-monospace"), `Premium customization controls failed: ${JSON.stringify(customization)}`);
 
   const geometryBefore = await client.evaluate(`(() => {
     const node = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
@@ -362,13 +392,13 @@ try {
 
   await client.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   const mobileToolbar = await client.evaluate(`new Promise((resolve) => requestAnimationFrame(() => {
-    const controls = [...document.querySelectorAll('.toolbar [data-mode], #arrange-menu, #view-menu, #project-menu, #theme-toggle, .toolbar button[title="Settings"], .toolbar button[title="Keyboard shortcuts"]')];
+    const controls = [...document.querySelectorAll('.toolbar [data-mode], .premium-toolbar-actions summary')].filter((control) => control.getBoundingClientRect().width > 0);
     resolve(controls.map((control) => {
       const rect = control.getBoundingClientRect();
       return { label: control.getAttribute('aria-label') || control.textContent.trim(), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height, visible: getComputedStyle(control).display !== 'none' };
     }));
   }))`);
-  assert(mobileToolbar.every((control) => control.visible && control.width >= 20 && control.height >= 20 && control.left >= 0 && control.right <= 390 && control.top >= 0 && control.bottom <= 118), `Mobile toolbar controls are clipped: ${JSON.stringify(mobileToolbar)}`);
+  assert(mobileToolbar.length >= 4 && mobileToolbar.every((control) => control.visible && control.width >= 20 && control.height >= 20 && control.left >= 0 && control.right <= 390 && control.top >= 0 && control.bottom <= 104), `Mobile toolbar controls are clipped: ${JSON.stringify(mobileToolbar)}`);
 
   await client.send("Emulation.clearDeviceMetricsOverride");
   const homeLoaded = client.wait("Page.loadEventFired");
@@ -379,17 +409,19 @@ try {
     const originalCount = document.querySelectorAll('.project-card').length;
     card.querySelector('[data-duplicate-project]').click();
     const duplicatedCount = document.querySelectorAll('.project-card').length;
-    document.querySelector('[data-new-project]').click();
-    const modalVisible = !document.querySelector('#new-project-modal').classList.contains('hidden');
-    document.querySelector('[data-close-new-project]').click();
     const search = document.querySelector('#project-search');
     search.value = 'no such flowchart';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     const noResults = Boolean(document.querySelector('.library-no-results'));
-    return { title: document.title, card: Boolean(card), originalCount, duplicatedCount, modalVisible, noResults, databaseCopy: document.body.innerText.includes('No database') };
+    return { title: document.title, card: Boolean(card), originalCount, duplicatedCount, noResults, noModal: !document.querySelector('#new-project-modal'), addButton: Boolean(document.querySelector('[data-new-project]')), databaseCopy: document.body.innerText.includes('No database') };
   })()`);
-  assert(library.title === "Nodes · Private flowcharts" && library.card, `Project library did not render: ${JSON.stringify(library)}`);
-  assert(library.duplicatedCount === library.originalCount + 1 && library.modalVisible && library.noResults && library.databaseCopy, "Project library controls failed");
+  assert(library.title === "Nodes · Your flowcharts" && library.card, `Project library did not render: ${JSON.stringify(library)}`);
+  assert(library.duplicatedCount === library.originalCount + 1 && library.noModal && library.addButton && library.noResults && library.databaseCopy, "Project library controls failed");
+  const instantProjectLoaded = client.wait("Page.loadEventFired");
+  await client.evaluate(`(() => { const search = document.querySelector('#project-search'); search.value = ''; search.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-new-project]').click(); })()`);
+  await instantProjectLoaded;
+  const instantProject = await client.evaluate(`({ title: document.title, projectUrl: location.search.includes('project='), nodes: document.querySelectorAll('#node-layer .node').length })`);
+  assert(instantProject.title === "Editor · Nodes" && instantProject.projectUrl && instantProject.nodes === 0, `Add flowchart was not immediate and blank: ${JSON.stringify(instantProject)}`);
   assert(client.errors.length === 0, `Browser errors: ${client.errors.join("; ")}`);
 
   console.log("Browser smoke test passed: local project library, settings, commands, themes, locking, menus, modals, rendering, connectors, persistence, XML/JSON projects, and SVG/PNG export.");

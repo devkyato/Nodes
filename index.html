@@ -3,22 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Create and organize private flowcharts that stay in your browser. No account, cloud sync, analytics, or database.">
-  <meta name="author" content="@dev.mako (devkyato)">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <meta id="theme-color" name="theme-color" content="#f7f8fa">
+  <meta name="description" content="A private, local-first flowchart workspace. No account and no database.">
+  <meta name="theme-color" content="#0a0a0b">
   <link rel="canonical" href="https://nodesss.xyz/">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Nodes">
-  <meta property="og:title" content="Nodes — private flowcharts in your browser">
-  <meta property="og:description" content="A fast, local-first flowchart workspace. Your diagrams never leave your browser unless you export them.">
+  <meta property="og:title" content="Nodes — private flowcharts">
+  <meta property="og:description" content="Create polished flowcharts that stay in your browser.">
   <meta property="og:url" content="https://nodesss.xyz/">
   <meta property="og:image" content="https://nodesss.xyz/og.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Nodes — private flowcharts in your browser">
-  <meta name="twitter:description" content="Create, organize, and export flowcharts without an account or database.">
-  <meta name="twitter:image" content="https://nodesss.xyz/og.png">
-  <title>Nodes · Private flowcharts</title>
+  <title>Nodes · Your flowcharts</title>
   <link rel="icon" href="data:,">
   <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="flyon.css">
@@ -26,103 +18,47 @@
   <script>
     (() => {
       const preference = localStorage.getItem("flowchart-creator-theme") || "system";
-      const theme = preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
-      document.documentElement.dataset.theme = theme;
       document.documentElement.dataset.themePreference = preference;
+      document.documentElement.dataset.theme = preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
     })();
   </script>
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Nodes",
-      "url": "https://nodesss.xyz/",
-      "description": "A private, local-first browser flowchart workspace.",
-      "applicationCategory": "DesignApplication",
-      "operatingSystem": "Any modern web browser",
-      "isAccessibleForFree": true,
-      "license": "https://opensource.org/license/mit"
-    }
-  </script>
 </head>
-<body class="library-page">
-  <header class="library-header">
-    <a class="library-brand" href="./" aria-label="Nodes home">
-      <span class="brand-icon" aria-hidden="true">◇</span>
-      <span class="brand-word">nodes<span class="brand-cursor">_</span></span>
-    </a>
+<body class="library-page library-simple">
+  <header class="library-header simple-header">
+    <a class="library-brand" href="./" aria-label="Nodes home"><span class="brand-icon" aria-hidden="true">◇</span><span class="brand-word">nodes<span class="brand-cursor">_</span></span></a>
     <div class="library-header-actions">
-      <span class="privacy-chip"><span aria-hidden="true">●</span> Local-only workspace</span>
-      <a class="btn btn-sm btn-text" href="https://github.com/devkyato/Nodes" target="_blank" rel="noreferrer">GitHub</a>
+      <span class="privacy-chip"><span aria-hidden="true">●</span> Saved on this device</span>
+      <button type="button" class="icon-action" data-home-theme aria-label="Switch appearance" title="Switch appearance">◐</button>
+      <a class="icon-action" href="https://github.com/devkyato/Nodes" target="_blank" rel="noreferrer" aria-label="View source on GitHub" title="View source on GitHub">↗</a>
     </div>
   </header>
 
-  <main class="library-main">
-    <section class="library-hero" aria-labelledby="library-title">
-      <div>
-        <span class="library-kicker">Private by design</span>
-        <h1 id="library-title">Your flowcharts, in one quiet place.</h1>
-        <p>Create as many diagrams as you need. Everything saves to this browser—no account, no database, no tracking.</p>
-      </div>
-      <button type="button" class="btn btn-primary library-new-button" data-new-project>+ New flowchart</button>
+  <main class="simple-library-main">
+    <section class="simple-library-intro">
+      <div><p class="library-kicker">Local workspace</p><h1>Your flowcharts</h1><p>Pick up where you left off, or start a new canvas. Nothing leaves this browser.</p></div>
+      <button type="button" class="primary-create" data-new-project><span aria-hidden="true">＋</span> Add flowchart</button>
     </section>
 
-    <section class="privacy-banner" aria-label="Privacy information">
-      <span class="privacy-lock" aria-hidden="true">◈</span>
-      <div><strong>Nothing is uploaded.</strong><span>Projects remain in local browser storage. Use JSON export when you want a portable backup.</span></div>
-      <span class="privacy-badge">No database</span>
+    <section class="simple-library-tools" aria-label="Project controls">
+      <label class="library-search"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Search flowcharts" autocomplete="off" aria-label="Search flowcharts"></label>
+      <button type="button" class="secondary-action" data-import-project>Import JSON</button>
+      <input id="library-file-input" type="file" accept="application/json,.json" hidden>
+      <p id="project-count">0 flowcharts</p>
     </section>
 
     <section class="library-section" aria-labelledby="projects-title">
-      <div class="library-section-head">
-        <div>
-          <h2 id="projects-title">Your flowcharts</h2>
-          <p id="project-count">0 projects on this device</p>
-        </div>
-        <div class="library-controls">
-          <label class="library-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="project-search" type="search" placeholder="Find a flowchart…" autocomplete="off" aria-label="Find a flowchart">
-          </label>
-          <button type="button" class="btn btn-sm btn-soft" data-import-project>Import JSON</button>
-          <input id="library-file-input" type="file" accept="application/json,.json" hidden>
-        </div>
-      </div>
-
-      <div id="project-grid" class="project-grid" aria-live="polite"></div>
-      <div id="library-empty" class="library-empty" hidden>
-        <span class="empty-orbit" aria-hidden="true"><i></i><i></i><i></i></span>
+      <h2 id="projects-title" class="sr-only">Saved flowcharts</h2>
+      <div id="project-grid" class="project-grid simple-project-grid" aria-live="polite"></div>
+      <div id="library-empty" class="library-empty simple-empty" hidden>
+        <div class="empty-glyph" aria-hidden="true"><i></i><i></i><i></i></div>
         <h3>No flowcharts yet</h3>
-        <p>Start with a sample flow or import a JSON project from another browser.</p>
-        <button type="button" class="btn btn-primary" data-new-project>Create your first flowchart</button>
+        <p>One click creates a new private canvas.</p>
+        <button type="button" class="primary-create" data-new-project><span aria-hidden="true">＋</span> Add flowchart</button>
       </div>
     </section>
   </main>
 
-  <footer class="library-footer">
-    <span>Open source and built for private, local work.</span>
-    <span>Clearing browser storage removes local projects, so export important diagrams.</span>
-  </footer>
-
-  <div id="new-project-modal" class="overlay modal hidden" role="dialog" tabindex="-1" aria-labelledby="new-project-title">
-    <div class="modal-dialog">
-      <form id="new-project-form" class="modal-content premium-modal">
-        <div class="modal-header">
-          <div><span class="modal-kicker">New local project</span><h2 id="new-project-title" class="modal-title">Name your flowchart</h2></div>
-          <button type="button" class="btn btn-text btn-circle btn-sm" aria-label="Close" data-close-new-project>×</button>
-        </div>
-        <div class="modal-body">
-          <label class="library-name-field">Project name<input id="new-project-name" class="input" value="Untitled Flowchart" maxlength="80" autocomplete="off" required></label>
-          <p class="modal-note">This project will be saved only in this browser.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-sm btn-soft" data-close-new-project>Cancel</button>
-          <button type="submit" class="btn btn-sm btn-primary">Create flowchart</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
+  <footer class="simple-footer"><span>Private by default · No account · No database</span><span>Export JSON for a portable backup</span></footer>
   <div id="toast-region" class="toast-stack" role="region" aria-label="Notifications" aria-live="polite"></div>
   <script src="home.js"></script>
 </body>
