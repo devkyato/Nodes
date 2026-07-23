@@ -142,6 +142,26 @@ try {
   assert(initial.canvasWidth === "794" && initial.canvasHeight === "1123" && initial.canvasStatus === "1 A4 page", `Initial A4 canvas is incorrect: ${JSON.stringify(initial)}`);
   assert(!initial.overlay, "An error overlay is visible");
 
+  const navigation = await client.evaluate(`(() => {
+    const canvas = document.querySelector('#canvas');
+    const viewport = document.querySelector('#viewport');
+    const before = viewport.getAttribute('transform');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', bubbles: true }));
+    const panMode = document.querySelector('#canvas-shell').dataset.mode;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+    const afterKeys = viewport.getAttribute('transform');
+    canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: 80, bubbles: true, cancelable: true }));
+    const afterWheel = viewport.getAttribute('transform');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }));
+    const gridHidden = document.querySelector('.grid').hasAttribute('hidden');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }));
+    return { before, panMode, afterKeys, afterWheel, gridHidden, gridVisibleAgain: !document.querySelector('.grid').hasAttribute('hidden') };
+  })()`);
+  assert(navigation.panMode === "pan", "H did not activate the pan tool");
+  assert(navigation.before !== navigation.afterKeys && navigation.afterKeys !== navigation.afterWheel, "Keyboard and wheel panning did not update the viewport");
+  assert(navigation.gridHidden && navigation.gridVisibleAgain, "G did not toggle the grid");
+  await client.evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', bubbles: true }))`);
+
   const codeStudio = await client.evaluate(`(() => {
     document.querySelector(".code-studio-action").click();
     const modal = document.querySelector("#code-modal");

@@ -74,6 +74,9 @@
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="connect" title="Connector tool (C)">⤴ Connect</button>
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="text" title="Text tool (T)">✎ Text</button>
       </div>
+      <div class="tool-group pan-tool-group">
+        <button type="button" class="tool-button btn btn-sm btn-text" data-mode="pan" title="Hand tool (H)">Pan</button>
+      </div>
       <div class="premium-toolbar-actions" aria-label="Editor actions">
         <button type="button" class="topbar-action code-studio-action" data-overlay="#code-modal" aria-controls="code-modal" aria-expanded="false">Code</button>
         <button type="button" class="topbar-action save-action" data-action="save" title="Save checkpoint (Ctrl+S)" aria-label="Save checkpoint">Save</button>
@@ -253,7 +256,7 @@
     </aside>
 
     <footer class="statusbar">
-      <span id="status-text" aria-live="polite">Ready</span>
+      <span id="status-text" aria-live="polite">Ready · H to pan · Ctrl + wheel to zoom</span>
       <span id="selection-status">0 selected</span>
       <span id="canvas-size-status">1 A4 page</span>
     </footer>
@@ -291,6 +294,7 @@
         </div>
         <div class="modal-body shortcut-grid">
           <span>Select</span><kbd>V</kbd>
+          <span>Hand / pan tool</span><kbd>H</kbd>
           <span>Connect</span><kbd>C</kbd>
           <span>Add text</span><kbd>T</kbd>
           <span>Pan canvas</span><kbd>Space + drag</kbd>
@@ -299,6 +303,10 @@
           <span>Save checkpoint</span><kbd>Ctrl / ⌘ + S</kbd>
           <span>Open Code Studio</span><kbd>Ctrl / ⌘ + Shift + C</kbd>
           <span>Nudge precisely</span><kbd>Arrow keys</kbd>
+          <span>Pan with keys</span><kbd>Shift + Arrow</kbd>
+          <span>Zoom</span><kbd>+ / -</kbd>
+          <span>Fit diagram</span><kbd>0</kbd>
+          <span>Toggle grid</span><kbd>G</kbd>
         </div>
         <div class="modal-footer">
           <span class="modal-note">Tip: double-click any shape or connector label to edit it.</span>
@@ -412,6 +420,7 @@ end"></textarea>
           <button type="button" data-command-action="save"><span>💾</span><span><strong>Save checkpoint</strong><small>Project</small></span><kbd>Ctrl S</kbd></button>
           <button type="button" data-command-action="fit"><span>⊡</span><span><strong>Fit diagram</strong><small>View</small></span></button>
           <button type="button" data-command-mode="select"><span>↖</span><span><strong>Select tool</strong><small>Tools</small></span><kbd>V</kbd></button>
+          <button type="button" data-command-mode="pan"><span>✋</span><span><strong>Pan canvas</strong><small>Tools</small></span><kbd>H</kbd></button>
           <button type="button" data-command-mode="connect"><span>⤴</span><span><strong>Connector tool</strong><small>Tools</small></span><kbd>C</kbd></button>
           <button type="button" data-command-mode="text"><span>✎</span><span><strong>Text tool</strong><small>Tools</small></span><kbd>T</kbd></button>
           <button type="button" data-command-code><span>&lt;/&gt;</span><span><strong>Open Code Studio</strong><small>Developer</small></span></button>

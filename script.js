@@ -581,7 +581,7 @@
     state.mode = mode;
     document.querySelectorAll("[data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
     refs.shell.dataset.mode = mode;
-    setStatus(mode === "connect" ? "Drag between connection points" : mode === "text" ? "Click to add text" : "Select tool");
+    setStatus(mode === "pan" ? "Pan tool · drag anywhere on the canvas" : mode === "connect" ? "Drag between connection points" : mode === "text" ? "Click to add text" : "Select tool");
     render();
   }
 
@@ -604,7 +604,7 @@
     const nodeElement = event.target.closest?.("[data-node-id]");
     const edgeElement = event.target.closest?.("[data-edge-id]");
 
-    if (spacePressed || event.button === 1) {
+    if (state.mode === "pan" || spacePressed || event.button === 1) {
       interaction = { type: "pan", startClient: { x: event.clientX, y: event.clientY }, initialPan: { ...state.pan } };
       refs.shell.classList.add("panning");
     } else if (resize) {
@@ -1860,13 +1860,25 @@
     else if (command && event.key.toLowerCase() === "s") { event.preventDefault(); saveLocal(); }
     else if (event.key === "Enter" && state.selectedIds.length === 1 && selectedNodes().length === 1) { event.preventDefault(); beginTextEditing("node", selectedNodes()[0].id); }
     else if (["Delete", "Backspace"].includes(event.key)) { event.preventDefault(); deleteSelection(); }
-    else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+    else if (event.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) && !state.selectedIds.length) {
+      event.preventDefault();
+      const distance = 48;
+      state.pan.x += event.key === "ArrowLeft" ? distance : event.key === "ArrowRight" ? -distance : 0;
+      state.pan.y += event.key === "ArrowUp" ? distance : event.key === "ArrowDown" ? -distance : 0;
+      applyViewport();
+      setStatus("Canvas panned");
+    } else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
       event.preventDefault();
       const distance = event.shiftKey ? 10 : 1;
       moveSelection(event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0, event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0);
     } else if (!command && event.key.toLowerCase() === "v") setMode("select");
+    else if (!command && event.key.toLowerCase() === "h") setMode("pan");
     else if (!command && event.key.toLowerCase() === "c") setMode("connect");
     else if (!command && event.key.toLowerCase() === "t") setMode("text");
+    else if (!command && event.key.toLowerCase() === "g") handleViewAction("grid");
+    else if (!command && (event.key === "+" || event.key === "=")) zoomAt(1.15);
+    else if (!command && event.key === "-") zoomAt(1 / 1.15);
+    else if (!command && event.key === "0") fitToScreen();
   }
 
   function onKeyUp(event) {
@@ -2002,8 +2014,15 @@
       event.preventDefault();
     });
     refs.svg.addEventListener("wheel", (event) => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault(); zoomAt(event.deltaY < 0 ? 1.1 : 1 / 1.1, event.clientX, event.clientY);
+      event.preventDefault();
+      if (event.ctrlKey || event.metaKey) {
+        zoomAt(event.deltaY < 0 ? 1.1 : 1 / 1.1, event.clientX, event.clientY);
+      } else {
+        state.pan.x -= event.shiftKey ? event.deltaY : event.deltaX;
+        state.pan.y -= event.shiftKey ? 0 : event.deltaY;
+        applyViewport();
+        setStatus("Canvas panned · Ctrl + wheel to zoom");
+      }
     }, { passive: false });
     refs.editor.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); editing.cancelled = true; finishTextEditing(false); }
@@ -2037,6 +2056,7 @@
   initTheme();
   applyPreferences();
   createShapePalette();
+  document.querySelector(".tool-pills")?.append(document.querySelector('[data-mode="pan"]'));
   bindEvents();
   refs.title.value = state.documentTitle;
   refs.snap.checked = state.snap;
