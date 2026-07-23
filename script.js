@@ -105,6 +105,7 @@
     codeIssues: document.querySelector("#code-issues"),
     codeSummary: document.querySelector("#code-summary"),
     flowTextInput: document.querySelector("#flow-text-input"),
+    codeSidebar: document.querySelector("#code-sidebar"),
     toastRegion: document.querySelector("#toast-region"),
     themeColor: document.querySelector("#theme-color")
   };
@@ -118,6 +119,7 @@
   let nudgePending = false;
   let commandCursor = -1;
   let activeCodeLanguage = "pseudo";
+  let activeInspectorTab = "design";
 
   function uid(prefix = "item") {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -434,7 +436,8 @@
   function syncCanvasSize() {
     const maxX = state.nodes.length ? Math.max(...state.nodes.map((node) => node.x + node.width + CANVAS.padding)) : A4.width;
     const maxY = state.nodes.length ? Math.max(...state.nodes.map((node) => node.y + node.height + CANVAS.padding)) : A4.height;
-    expandCanvas(maxX, maxY);
+    CANVAS.width = Math.max(A4.width, Math.ceil((maxX - .5) / A4.width) * A4.width);
+    CANVAS.height = Math.max(A4.height, Math.ceil((maxY - .5) / A4.height) * A4.height);
     updateCanvasElements();
   }
 
@@ -444,12 +447,51 @@
     updateCanvasElements();
   }
 
+  function compactIntoFirstPage() {
+    if (!state.nodes.length) return;
+    const bounds = diagramBounds();
+    const availableWidth = A4.width - CANVAS.padding * 2;
+    const availableHeight = A4.height - CANVAS.padding * 2;
+    const incoming = new Map(state.nodes.map((node) => [node.id, 0]));
+    const outgoing = new Map(state.nodes.map((node) => [node.id, 0]));
+    state.edges.forEach((edge) => {
+      if (incoming.has(edge.toNodeId)) incoming.set(edge.toNodeId, incoming.get(edge.toNodeId) + 1);
+      if (outgoing.has(edge.fromNodeId)) outgoing.set(edge.fromNodeId, outgoing.get(edge.fromNodeId) + 1);
+    });
+    const linear = state.edges.length === state.nodes.length - 1
+      && [...incoming.values()].every((count) => count <= 1)
+      && [...outgoing.values()].every((count) => count <= 1);
+    if ((bounds.width > availableWidth || bounds.height > availableHeight) && linear) {
+      const ordered = [...state.nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+      const totalHeight = ordered.reduce((sum, node) => sum + node.height, 0);
+      const gap = ordered.length > 1 ? Math.max(18, (availableHeight - totalHeight) / (ordered.length - 1)) : 0;
+      let y = CANVAS.padding;
+      ordered.forEach((node) => {
+        node.x = (A4.width - node.width) / 2;
+        node.y = y;
+        y += node.height + gap;
+      });
+      return;
+    }
+    if (bounds.width > availableWidth || bounds.height > availableHeight) return;
+    const dx = (A4.width - bounds.width) / 2 - bounds.x;
+    const dy = Math.max(CANVAS.padding, (A4.height - bounds.height) / 2) - bounds.y;
+    state.nodes.forEach((node) => { node.x += dx; node.y += dy; });
+  }
+
   function renderOverlays() {
     if (!state.nodes.length && !state.edges.length) {
       refs.overlayLayer.append(svgEl("text", { class: "empty-hint", x: CANVAS.width / 2, y: CANVAS.height / 2, "text-anchor": "middle" }, "Add a shape or double-click to add text"));
     }
     const selectedNodes = state.nodes.filter((node) => state.selectedIds.includes(node.id));
-    selectedNodes.forEach((node) => renderNodeOverlay(node));
+    if (selectedNodes.length === 1) renderNodeOverlay(selectedNodes[0]);
+    else if (selectedNodes.length > 1) {
+      const x = Math.min(...selectedNodes.map((node) => node.x));
+      const y = Math.min(...selectedNodes.map((node) => node.y));
+      const right = Math.max(...selectedNodes.map((node) => node.x + node.width));
+      const bottom = Math.max(...selectedNodes.map((node) => node.y + node.height));
+      refs.overlayLayer.append(svgEl("rect", { class: "multi-selection", x: x - 10, y: y - 10, width: right - x + 20, height: bottom - y + 20, rx: 8 }));
+    }
     if (state.mode === "connect") {
       state.nodes.filter((node) => !state.selectedIds.includes(node.id)).forEach((node) => renderPorts(node));
     }
@@ -913,6 +955,7 @@
     const nodes = selectedNodes();
     const edges = selectedEdges();
     refs.properties.hidden = false;
+    if (activeInspectorTab === "code") return;
     refs.properties.classList.toggle("inspector-empty", !state.selectedIds.length);
     if (!state.selectedIds.length) return renderCanvasProperties();
     if (nodes.length > 1 && !edges.length) return renderMultiProperties(nodes);
@@ -1126,6 +1169,7 @@
     const normalized = normalizeProject(data);
     resetCanvasSize();
     state = { ...state, ...normalized, selectedIds: [], history: [], historyIndex: -1, mode: "select" };
+    compactIntoFirstPage();
     state.history = [snapshot()]; state.historyIndex = 0;
     refs.title.value = state.documentTitle; refs.snap.checked = state.snap;
     render(); setStatus(message);
@@ -1351,12 +1395,12 @@
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
-  function flowCodeModel() {
-    const nodes = [...state.nodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  function flowCodeModel(sourceNodes = state.nodes, sourceEdges = state.edges) {
+    const nodes = [...sourceNodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
     const outgoing = new Map(nodes.map((node) => [node.id, []]));
     const incoming = new Map(nodes.map((node) => [node.id, []]));
-    state.edges.forEach((edge) => {
+    sourceEdges.forEach((edge) => {
       if (nodeById.has(edge.fromNodeId) && nodeById.has(edge.toNodeId)) {
         outgoing.get(edge.fromNodeId).push(edge);
         incoming.get(edge.toNodeId).push(edge);
@@ -1400,7 +1444,7 @@
       const right = codeIdentifier(operator === "-" ? match[1] : match[2]);
       return { target: codeIdentifier(match[3] || "result"), expression: `${left} ${operator} ${right}`, variables: [left, right, codeIdentifier(match[3] || "result")] };
     }
-    const assignment = text.match(/^(.+?)\s*=\s*(.+)$/);
+    const assignment = text.match(/^(?:set\s+)?(.+?)\s*=\s*(.+)$/i);
     if (assignment) return { target: codeIdentifier(assignment[1]), expression: assignment[2].replace(/\b[A-Za-z][A-Za-z0-9 ]*\b/g, (value) => codeIdentifier(value)), variables: [codeIdentifier(assignment[1])] };
     return null;
   }
@@ -1529,7 +1573,7 @@
   }
 
   function generatedCode(language = activeCodeLanguage) {
-    const model = flowCodeModel();
+    const model = activeInspectorTab === "code" && refs.flowTextInput?.value.trim() ? textFlowModel() : flowCodeModel();
     if (language === "python") return generatePython(model);
     if (language === "cpp") return generateCpp(model);
     return generatePseudoCode(model);
@@ -1537,9 +1581,11 @@
 
   function refreshCodeStudio() {
     if (!refs.codeOutput) return;
-    const model = flowCodeModel(); const issues = validateFlow(model);
+    const model = activeInspectorTab === "code" && refs.flowTextInput?.value.trim() ? textFlowModel() : flowCodeModel();
+    const issues = validateFlow(model);
     refs.codeOutput.textContent = generatedCode(activeCodeLanguage);
-    refs.codeSummary.textContent = `${model.nodes.length} step${model.nodes.length === 1 ? "" : "s"} · ${state.edges.length} connector${state.edges.length === 1 ? "" : "s"}`;
+    const connectorCount = [...model.outgoing.values()].reduce((total, edges) => total + edges.length, 0);
+    refs.codeSummary.textContent = `${model.nodes.length} step${model.nodes.length === 1 ? "" : "s"} · ${connectorCount} connector${connectorCount === 1 ? "" : "s"}`;
     refs.codeIssues.replaceChildren(...issues.map((issue) => {
       const item = document.createElement("div"); item.className = `code-issue ${issue.tone}`; item.textContent = issue.text; return item;
     }));
@@ -1577,21 +1623,48 @@
     return { type: "process", text: value || "Process" };
   }
 
-  function applyTextFlow() {
-    const lines = refs.flowTextInput.value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && !line.startsWith("//"));
-    if (!lines.length) { showToast("Add at least one text step", "error"); return; }
+  function buildTextFlowData(source = refs.flowTextInput.value) {
+    const lines = source.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && !line.startsWith("//"));
     const parsed = lines.map(parseTextStep);
+    if (!parsed.length) return { nodes: [], edges: [] };
     const maxWidth = Math.max(...parsed.map(({ text }) => Math.min(360, Math.max(170, compactText(text).length * 7.2))));
     const nodes = parsed.map(({ type, text }, index) => {
       const node = createNode(type, 0, 54 + index * 132, text);
+      node.id = `draft-${index + 1}`;
       node.width = type === "terminator" ? 160 : type === "decision" ? Math.max(180, maxWidth) : maxWidth;
       node.x = (A4.width - node.width) / 2;
       return node;
     });
     const edges = nodes.slice(1).map((node, index) => ({
-      id: uid("edge"), fromNodeId: nodes[index].id, fromPort: "bottom", toNodeId: node.id, toPort: "top",
+      id: `draft-edge-${index + 1}`, fromNodeId: nodes[index].id, fromPort: "bottom", toNodeId: node.id, toPort: "top",
       type: preferences.defaultConnector, label: nodes[index].type === "decision" ? "Yes" : "", style: { ...clone(DEFAULT_EDGE_STYLE), endArrow: preferences.defaultArrow }
     }));
+    return { nodes, edges };
+  }
+
+  function textFlowModel() {
+    const draft = buildTextFlowData();
+    return flowCodeModel(draft.nodes, draft.edges);
+  }
+
+  function renderTextRecognition() {
+    const preview = document.querySelector("#text-flow-preview");
+    if (!preview) return;
+    const { nodes } = buildTextFlowData();
+    preview.replaceChildren(...nodes.map((node, index) => {
+      const item = document.createElement("div");
+      item.className = `recognized-step recognized-${node.type}`;
+      item.innerHTML = `<span>${index + 1}</span><i>${node.type === "terminator" ? "●" : node.type === "decision" ? "◇" : node.type === "input" ? "↳" : "□"}</i><strong>${escapeHtml(compactText(node.text))}</strong>`;
+      return item;
+    }));
+    if (!nodes.length) preview.innerHTML = `<p>Start typing to preview the recognized flow.</p>`;
+  }
+
+  function applyTextFlow() {
+    const draft = buildTextFlowData();
+    if (!draft.nodes.length) { showToast("Add at least one text step", "error"); return; }
+    const nodes = draft.nodes.map((node) => ({ ...node, id: uid("node") }));
+    const edges = nodes.slice(1).map((node, index) => ({ ...draft.edges[index], id: uid("edge"), fromNodeId: nodes[index].id, toNodeId: node.id }));
     state.nodes = nodes; state.edges = edges; state.selectedIds = [];
     CANVAS.width = A4.width; CANVAS.height = Math.max(A4.height, Math.ceil((nodes.length * 132 + 160) / A4.height) * A4.height);
     commit("Diagram rebuilt from text");
@@ -1599,9 +1672,44 @@
     showToast(`${nodes.length} text steps applied`, "success");
   }
 
+  function setInspectorTab(tab) {
+    activeInspectorTab = tab;
+    const code = tab === "code";
+    document.querySelector("#app").classList.toggle("code-inspector-open", code);
+    refs.propertiesContent.classList.toggle("hidden", code);
+    refs.codeSidebar.classList.toggle("hidden", !code);
+    document.querySelectorAll("[data-inspector-tab]").forEach((button) => {
+      const active = button.dataset.inspectorTab === tab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    document.querySelectorAll("[data-inspector-open='code']").forEach((button) => button.setAttribute("aria-expanded", String(code)));
+    if (code) {
+      refs.propertiesTitle.textContent = "Code";
+      if (!refs.flowTextInput.value.trim()) refs.flowTextInput.value = diagramAsText();
+      renderTextRecognition();
+      refreshCodeStudio();
+      refs.flowTextInput.focus({ preventScroll: true });
+    } else renderProperties();
+  }
+
+  function mountCodeSidebar() {
+    const modal = document.querySelector("#code-modal");
+    if (!modal || !refs.codeSidebar) return;
+    const workbench = modal.querySelector(".code-workbench");
+    const footer = modal.querySelector(".code-footer");
+    refs.codeSidebar.append(workbench);
+    const preview = document.createElement("div");
+    preview.id = "text-flow-preview";
+    preview.className = "text-flow-preview";
+    refs.flowTextInput.insertAdjacentElement("afterend", preview);
+    refs.codeSidebar.append(footer);
+    modal.remove();
+  }
+
   async function handleCodeAction(action) {
-    if (action === "open") { setOverlay("#code-modal", true); return; }
-    if (action === "load-text") { refs.flowTextInput.value = diagramAsText(); showToast("Diagram loaded into text", "success"); return; }
+    if (action === "open") { setInspectorTab("code"); return; }
+    if (action === "load-text") { refs.flowTextInput.value = diagramAsText(); renderTextRecognition(); refreshCodeStudio(); showToast("Diagram loaded into text", "success"); return; }
     if (action === "apply-text") { applyTextFlow(); return; }
     if (action === "validate") {
       refreshCodeStudio();
@@ -1841,7 +1949,7 @@
     if (button.dataset.commandAction) handleToolbar(button.dataset.commandAction);
     else if (button.dataset.commandMode) setMode(button.dataset.commandMode);
     else if (button.hasAttribute("data-command-settings")) setOverlay("#settings-modal", true);
-    else if (button.hasAttribute("data-command-code")) setOverlay("#code-modal", true);
+    else if (button.hasAttribute("data-command-code")) setInspectorTab("code");
   }
 
   function onKeyDown(event) {
@@ -1849,7 +1957,7 @@
     if (event.key === "Escape") { closeMenus(); closeOverlays(); }
     const command = event.ctrlKey || event.metaKey;
     if (command && event.key.toLowerCase() === "k") { event.preventDefault(); closeOverlays(); setOverlay("#command-modal", true); return; }
-    if (command && event.shiftKey && event.key.toLowerCase() === "c") { event.preventDefault(); closeOverlays(); setOverlay("#code-modal", true); return; }
+    if (command && event.shiftKey && event.key.toLowerCase() === "c") { event.preventDefault(); closeOverlays(); setInspectorTab("code"); return; }
     if (event.code === "Space" && !typing) { spacePressed = true; event.preventDefault(); }
     if (typing) return;
     if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
@@ -1901,7 +2009,9 @@
       const arrange = event.target.closest("[data-arrange]");
       const panelAction = event.target.closest("[data-panel-action]");
       const viewAction = event.target.closest("[data-view-action]");
+      const inspectorOpen = event.target.closest("[data-inspector-open]");
       if (mode) setMode(mode.dataset.mode);
+      if (inspectorOpen) setInspectorTab(inspectorOpen.dataset.inspectorOpen);
       if (action) handleToolbar(action.dataset.action);
       if (arrange) arrangeSelection(arrange.dataset.arrange);
       if (panelAction) handlePanelAction(panelAction.dataset.panelAction);
@@ -1942,11 +2052,20 @@
       }
       if (action?.dataset.settingsAction === "fit") fitToScreen();
     });
-    document.querySelector("#code-modal").addEventListener("click", (event) => {
+    refs.codeSidebar.addEventListener("click", (event) => {
       const language = event.target.closest("[data-code-language]");
       const action = event.target.closest("[data-code-action]");
       if (language) { activeCodeLanguage = language.dataset.codeLanguage; refreshCodeStudio(); }
       if (action) handleCodeAction(action.dataset.codeAction);
+    });
+    refs.codeSidebar.addEventListener("input", (event) => {
+      if (event.target !== refs.flowTextInput) return;
+      renderTextRecognition();
+      refreshCodeStudio();
+    });
+    document.querySelector(".inspector-tabs").addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-inspector-tab]");
+      if (tab) setInspectorTab(tab.dataset.inspectorTab);
     });
     refs.settingsGrid.addEventListener("change", () => {
       state.showGrid = refs.settingsGrid.checked;
@@ -2056,6 +2175,7 @@
   initTheme();
   applyPreferences();
   createShapePalette();
+  mountCodeSidebar();
   document.querySelector(".tool-pills")?.append(document.querySelector('[data-mode="pan"]'));
   bindEvents();
   refs.title.value = state.documentTitle;

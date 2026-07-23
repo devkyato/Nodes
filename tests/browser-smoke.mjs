@@ -164,8 +164,8 @@ try {
 
   const codeStudio = await client.evaluate(`(() => {
     document.querySelector(".code-studio-action").click();
-    const modal = document.querySelector("#code-modal");
-    const visible = !modal.classList.contains("hidden");
+    const sidebar = document.querySelector("#code-sidebar");
+    const visible = !sidebar.classList.contains("hidden");
     const pseudo = document.querySelector("#code-output").textContent;
     const issues = document.querySelector("#code-issues").textContent;
     document.querySelector('[data-code-language="python"]').click();
@@ -173,13 +173,21 @@ try {
     document.querySelector('[data-code-language="cpp"]').click();
     const cpp = document.querySelector("#code-output").textContent;
     document.querySelector("#flow-text-input").value = "start\\nask Your name?\\ninput name\\nprocess Greet name\\ndisplay name\\nend";
+    document.querySelector("#flow-text-input").dispatchEvent(new Event("input", { bubbles: true }));
+    const recognizedSteps = document.querySelectorAll(".recognized-step").length;
+    const liveCode = document.querySelector("#code-output").textContent;
+    document.querySelector('[data-code-language="python"]').click();
+    const livePython = document.querySelector("#code-output").textContent;
+    document.querySelector('[data-code-language="cpp"]').click();
+    const liveCpp = document.querySelector("#code-output").textContent;
     document.querySelector('[data-code-action="apply-text"]').click();
     const textNodes = document.querySelectorAll("#node-layer .node").length;
     const textEdges = document.querySelectorAll("#edge-layer .edge").length;
     const textApplied = document.querySelector("#node-layer").textContent;
     document.querySelector('[data-action="undo"]').click();
-    document.querySelector('[aria-label="Close Code Studio"]').click();
-    return { visible, pseudo, python, cpp, issues, textNodes, textEdges, textApplied };
+    document.querySelector('[data-inspector-tab="design"]').click();
+    const singlePage = document.querySelector("#canvas-size-status").textContent;
+    return { visible, pseudo, python, cpp, issues, textNodes, textEdges, textApplied, recognizedSteps, liveCode, livePython, liveCpp, singlePage, modalRemoved: !document.querySelector("#code-modal") };
   })()`);
   assert(codeStudio.visible, "Code Studio did not open");
   assert(/ready to generate/i.test(codeStudio.issues), "Flow validation did not report a healthy graph");
@@ -191,6 +199,10 @@ try {
   assert(/gross_pay = hours \* pay_rate;/.test(codeStudio.cpp), "C++ omitted the calculation");
   assert(codeStudio.textNodes === 6 && codeStudio.textEdges === 5, "Text flow did not rebuild the diagram");
   assert(/Your name/.test(codeStudio.textApplied), "Text flow content was not rendered");
+  assert(codeStudio.recognizedSteps === 6 && /Your name/.test(codeStudio.liveCode), "Live text recognition did not update the preview and code");
+  assert(/def run_flowchart/.test(codeStudio.livePython) && /int main/.test(codeStudio.liveCpp), "Live Python and C++ previews did not update");
+  assert(codeStudio.singlePage === "1 A4 page", `Text flow did not scale to one A4 page: ${codeStudio.singlePage}`);
+  assert(codeStudio.modalRemoved, "Legacy Code Studio modal is still mounted");
 
   const theme = await client.evaluate(`(() => {
     const before = document.documentElement.dataset.theme;

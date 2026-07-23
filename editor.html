@@ -78,7 +78,7 @@
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="pan" title="Hand tool (H)">Pan</button>
       </div>
       <div class="premium-toolbar-actions" aria-label="Editor actions">
-        <button type="button" class="topbar-action code-studio-action" data-overlay="#code-modal" aria-controls="code-modal" aria-expanded="false">Code</button>
+        <button type="button" class="topbar-action code-studio-action" data-inspector-open="code" aria-controls="code-sidebar" aria-expanded="false" title="Open code workspace">Code</button>
         <button type="button" class="topbar-action save-action" data-action="save" title="Save checkpoint (Ctrl+S)" aria-label="Save checkpoint">Save</button>
         <details class="native-menu">
           <summary id="arrange-native">Arrange</summary>
@@ -251,8 +251,13 @@
     </main>
 
     <aside id="properties-panel" class="properties-panel premium-inspector" aria-label="Design inspector">
+      <div class="inspector-tabs" role="tablist" aria-label="Inspector workspace">
+        <button type="button" class="active" role="tab" aria-selected="true" data-inspector-tab="design" title="Design inspector">◇ <span>Design</span></button>
+        <button type="button" role="tab" aria-selected="false" data-inspector-tab="code" title="Code workspace">&lt;/&gt; <span>Code</span></button>
+      </div>
       <div class="panel-heading"><span id="properties-title">Design</span><span class="inspector-badge">Local</span></div>
       <div id="properties-content" class="properties-content"></div>
+      <div id="code-sidebar" class="code-sidebar hidden" aria-label="Code workspace"></div>
     </aside>
 
     <footer class="statusbar">
@@ -371,10 +376,10 @@
         </div>
         <div class="code-workbench">
           <aside class="code-validation" aria-label="Flow validation">
-            <div class="code-panel-heading"><strong>Flow health</strong><button type="button" data-code-action="validate">Refresh</button></div>
+              <div class="code-panel-heading"><strong>Flow status</strong><button type="button" data-code-action="validate" title="Check flow">Check</button></div>
             <div id="code-issues" class="code-issues" aria-live="polite"></div>
             <div class="text-flow-builder">
-              <div class="code-panel-heading"><strong>Build with text</strong><button type="button" data-code-action="load-text">From diagram</button></div>
+              <div class="code-panel-heading"><strong>Flow script</strong><button type="button" data-code-action="load-text" title="Replace this script with the current diagram">Use canvas</button></div>
               <textarea id="flow-text-input" spellcheck="false" aria-label="Text flow definition" placeholder="start
 ask How many hours?
 input hours
@@ -382,8 +387,8 @@ set gross_pay = hours * pay_rate
 if gross_pay > 1000
 display gross_pay
 end"></textarea>
-              <p>One step per line: start, process, ask, input, set, if, display, document, or end.</p>
-              <button type="button" class="text-flow-apply" data-code-action="apply-text">Apply to diagram</button>
+              <p>Type one instruction per line. Recognized commands: start, input, ask, set, if, display, process, document, end.</p>
+              <button type="button" class="text-flow-apply" data-code-action="apply-text">Update canvas</button>
             </div>
           </aside>
           <section class="code-preview-panel">
