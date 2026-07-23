@@ -130,13 +130,47 @@ try {
     shapes: document.querySelectorAll('.shape-item').length,
     nodes: document.querySelectorAll('#node-layer .node').length,
     edges: document.querySelectorAll('#edge-layer .edge').length,
+    canvasWidth: document.querySelector('.workspace-bg').getAttribute('width'),
+    canvasHeight: document.querySelector('.workspace-bg').getAttribute('height'),
+    canvasStatus: document.querySelector('#canvas-size-status').textContent,
     overlay: Boolean(document.querySelector('[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay'))
   })`);
   assert(initial.title === "Editor · Nodes", "Document title is incorrect");
   assert(initial.textLength > 50, "Page content is unexpectedly blank");
   assert(initial.shapes === 12, "Shape palette did not render all symbols");
   assert(initial.nodes === 8 && initial.edges === 7, "Starter diagram did not render correctly");
+  assert(initial.canvasWidth === "794" && initial.canvasHeight === "1123" && initial.canvasStatus === "1 A4 page", `Initial A4 canvas is incorrect: ${JSON.stringify(initial)}`);
   assert(!initial.overlay, "An error overlay is visible");
+
+  const codeStudio = await client.evaluate(`(() => {
+    document.querySelector(".code-studio-action").click();
+    const modal = document.querySelector("#code-modal");
+    const visible = !modal.classList.contains("hidden");
+    const pseudo = document.querySelector("#code-output").textContent;
+    const issues = document.querySelector("#code-issues").textContent;
+    document.querySelector('[data-code-language="python"]').click();
+    const python = document.querySelector("#code-output").textContent;
+    document.querySelector('[data-code-language="cpp"]').click();
+    const cpp = document.querySelector("#code-output").textContent;
+    document.querySelector("#flow-text-input").value = "start\\nask Your name?\\ninput name\\nprocess Greet name\\ndisplay name\\nend";
+    document.querySelector('[data-code-action="apply-text"]').click();
+    const textNodes = document.querySelectorAll("#node-layer .node").length;
+    const textEdges = document.querySelectorAll("#edge-layer .edge").length;
+    const textApplied = document.querySelector("#node-layer").textContent;
+    document.querySelector('[data-action="undo"]').click();
+    document.querySelector('[aria-label="Close Code Studio"]').click();
+    return { visible, pseudo, python, cpp, issues, textNodes, textEdges, textApplied };
+  })()`);
+  assert(codeStudio.visible, "Code Studio did not open");
+  assert(/ready to generate/i.test(codeStudio.issues), "Flow validation did not report a healthy graph");
+  assert(/PROGRAM untitled_flowchart/.test(codeStudio.pseudo), "Pseudocode was not generated");
+  assert(/gross_pay/i.test(codeStudio.pseudo), "Pseudocode omitted the calculated value");
+  assert(/def run_flowchart\(\):/.test(codeStudio.python), "Python was not generated");
+  assert(/gross_pay = hours \* pay_rate/.test(codeStudio.python), "Python omitted the calculation");
+  assert(/int main\(\)/.test(codeStudio.cpp), "C++ was not generated");
+  assert(/gross_pay = hours \* pay_rate;/.test(codeStudio.cpp), "C++ omitted the calculation");
+  assert(codeStudio.textNodes === 6 && codeStudio.textEdges === 5, "Text flow did not rebuild the diagram");
+  assert(/Your name/.test(codeStudio.textApplied), "Text flow content was not rendered");
 
   const theme = await client.evaluate(`(() => {
     const before = document.documentElement.dataset.theme;
@@ -254,6 +288,17 @@ try {
     return { fill: node.querySelector('.node-shape')?.getAttribute('fill'), transform: node.getAttribute('transform'), style: node.getAttribute('style'), font: node.querySelector('text')?.getAttribute('font-family') };
   })()`);
   assert(customization.fill === "#dff4ff" && customization.transform.includes("rotate(12") && customization.style.includes("drop-shadow") && customization.font.includes("ui-monospace"), `Premium customization controls failed: ${JSON.stringify(customization)}`);
+
+  const expandedCanvas = await client.evaluate(`(() => {
+    const y = document.querySelector('[data-node-prop="y"]');
+    y.value = '1180'; y.dispatchEvent(new Event('change', { bubbles: true }));
+    return {
+      height: document.querySelector('.workspace-bg').getAttribute('height'),
+      pages: document.querySelector('#canvas-size-status').textContent
+    };
+  })()`);
+  assert(expandedCanvas.height === "2246" && expandedCanvas.pages === "2 A4 pages", `Canvas did not expand by an A4 page: ${JSON.stringify(expandedCanvas)}`);
+  await client.evaluate("document.querySelector('[data-action=\"undo\"]').click()");
 
   const geometryBefore = await client.evaluate(`(() => {
     const node = document.querySelector('#node-layer .node:last-child').getBoundingClientRect();
@@ -413,10 +458,13 @@ try {
     search.value = 'no such flowchart';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     const noResults = Boolean(document.querySelector('.library-no-results'));
-    return { title: document.title, card: Boolean(card), originalCount, duplicatedCount, noResults, noModal: !document.querySelector('#new-project-modal'), addButton: Boolean(document.querySelector('[data-new-project]')), databaseCopy: document.body.innerText.includes('No database') };
+    const preview = card.querySelector('.project-preview-graphic');
+    const previewRect = preview?.getBoundingClientRect(); const frameRect = preview?.parentElement.getBoundingClientRect();
+    return { title: document.title, card: Boolean(card), originalCount, duplicatedCount, noResults, noModal: !document.querySelector('#new-project-modal'), addButton: Boolean(document.querySelector('[data-new-project]')), preview: Boolean(preview), previewNodes: preview?.querySelectorAll('[data-preview-node]').length || 0, previewContained: Boolean(previewRect && frameRect && previewRect.height <= frameRect.height && previewRect.width <= frameRect.width), projectOptions: Boolean(card.querySelector('.project-options')), textOnlyBrand: document.querySelector('.library-brand')?.textContent.trim() === 'nodes_' && !document.querySelector('.library-brand .brand-icon'), localSaveCopy: document.body.innerText.includes('Saved on this device') };
   })()`);
   assert(library.title === "Nodes · Your flowcharts" && library.card, `Project library did not render: ${JSON.stringify(library)}`);
-  assert(library.duplicatedCount === library.originalCount + 1 && library.noModal && library.addButton && library.noResults && library.databaseCopy, "Project library controls failed");
+  assert(library.duplicatedCount === library.originalCount + 1 && library.noModal && library.addButton && library.noResults, "Project library controls failed");
+  assert(library.preview && library.previewNodes === 10 && library.previewContained && library.projectOptions && library.textOnlyBrand && !library.localSaveCopy, `Project previews or simplified header failed: ${JSON.stringify(library)}`);
   const instantProjectLoaded = client.wait("Page.loadEventFired");
   await client.evaluate(`(() => { const search = document.querySelector('#project-search'); search.value = ''; search.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-new-project]').click(); })()`);
   await instantProjectLoaded;

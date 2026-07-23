@@ -2,7 +2,8 @@
   "use strict";
 
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const CANVAS = { width: 2400, height: 1600, padding: 16 };
+  const A4 = { width: 794, height: 1123 };
+  const CANVAS = { width: A4.width, height: A4.height, padding: 24 };
   const GRID_SIZE = 20;
   const LIBRARY_KEY = "nodes-project-library-v1";
   const PROJECT_PREFIX = "nodes-project-v1:";
@@ -89,6 +90,9 @@
     contextToolbar: document.querySelector("#context-toolbar"),
     shapeSearch: document.querySelector("#shape-search"),
     grid: document.querySelector(".grid"),
+    workspace: document.querySelector(".workspace-bg"),
+    pageGrid: document.querySelector(".page-grid"),
+    canvasSize: document.querySelector("#canvas-size-status"),
     settingsGrid: document.querySelector("#settings-grid-toggle"),
     settingsSnap: document.querySelector("#settings-snap-toggle"),
     autosave: document.querySelector("#autosave-toggle"),
@@ -97,6 +101,10 @@
     defaultArrow: document.querySelector("#default-arrow"),
     commandSearch: document.querySelector("#command-search"),
     commandList: document.querySelector("#command-list"),
+    codeOutput: document.querySelector("#code-output"),
+    codeIssues: document.querySelector("#code-issues"),
+    codeSummary: document.querySelector("#code-summary"),
+    flowTextInput: document.querySelector("#flow-text-input"),
     toastRegion: document.querySelector("#toast-region"),
     themeColor: document.querySelector("#theme-color")
   };
@@ -109,6 +117,7 @@
   let editing = null;
   let nudgePending = false;
   let commandCursor = -1;
+  let activeCodeLanguage = "pseudo";
 
   function uid(prefix = "item") {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -152,9 +161,10 @@
       ["terminator", "END"]
     ];
     labels.forEach(([type, text], index) => {
-      const node = createNode(type, 1120, 55 + index * 185, text);
+      const node = createNode(type, 0, 54 + index * 132, text);
       if (type === "input") node.width = index === 1 || index === 3 ? 320 : 190;
       if (type === "process") node.width = 300;
+      node.x = (A4.width - node.width) / 2;
       next.nodes.push(node);
       if (index) {
         next.edges.push({
@@ -383,6 +393,7 @@
   }
 
   function render() {
+    syncCanvasSize();
     refs.viewport.setAttribute("transform", `translate(${state.pan.x} ${state.pan.y}) scale(${state.zoom})`);
     refs.edgeLayer.replaceChildren();
     refs.nodeLayer.replaceChildren();
@@ -400,6 +411,37 @@
     renderContextToolbar();
     updateToolbar();
     syncSettingsControls();
+  }
+
+  function updateCanvasElements() {
+    [refs.workspace, refs.grid, refs.pageGrid].forEach((element) => {
+      element?.setAttribute("width", CANVAS.width);
+      element?.setAttribute("height", CANVAS.height);
+    });
+    const pages = (CANVAS.width / A4.width) * (CANVAS.height / A4.height);
+    if (refs.canvasSize) refs.canvasSize.textContent = `${pages} A4 page${pages === 1 ? "" : "s"}`;
+  }
+
+  function expandCanvas(requiredWidth, requiredHeight) {
+    const width = Math.max(CANVAS.width, Math.ceil(Math.max(1, requiredWidth) / A4.width) * A4.width);
+    const height = Math.max(CANVAS.height, Math.ceil(Math.max(1, requiredHeight) / A4.height) * A4.height);
+    if (width === CANVAS.width && height === CANVAS.height) return;
+    CANVAS.width = width;
+    CANVAS.height = height;
+    updateCanvasElements();
+  }
+
+  function syncCanvasSize() {
+    const maxX = state.nodes.length ? Math.max(...state.nodes.map((node) => node.x + node.width + CANVAS.padding)) : A4.width;
+    const maxY = state.nodes.length ? Math.max(...state.nodes.map((node) => node.y + node.height + CANVAS.padding)) : A4.height;
+    expandCanvas(maxX, maxY);
+    updateCanvasElements();
+  }
+
+  function resetCanvasSize() {
+    CANVAS.width = A4.width;
+    CANVAS.height = A4.height;
+    updateCanvasElements();
   }
 
   function renderOverlays() {
@@ -503,6 +545,7 @@
 
   function addNode(type, point) {
     const [width, height] = DEFAULT_SIZES[type] || DEFAULT_SIZES.process;
+    expandCanvas(point.x + width / 2 + CANVAS.padding, point.y + height / 2 + CANVAS.padding);
     const node = createNode(type, clamp(point.x - width / 2, CANVAS.padding, CANVAS.width - width - CANVAS.padding), clamp(point.y - height / 2, CANVAS.padding, CANVAS.height - height - CANVAS.padding));
     if (state.snap) { node.x = snap(node.x); node.y = snap(node.y); }
     state.nodes.push(node);
@@ -609,10 +652,11 @@
       interaction.initial.forEach((position, id) => {
         const node = state.nodes.find((item) => item.id === id);
         if (!node) return;
-        let x = position.x + dx;
-        let y = position.y + dy;
-        if (state.snap) { x = snap(x); y = snap(y); }
-        node.x = clamp(x, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
+      let x = position.x + dx;
+      let y = position.y + dy;
+      if (state.snap) { x = snap(x); y = snap(y); }
+      expandCanvas(x + node.width + CANVAS.padding, y + node.height + CANVAS.padding);
+      node.x = clamp(x, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
         node.y = clamp(y, CANVAS.padding, CANVAS.height - node.height - CANVAS.padding);
       });
       interaction.changed = Math.abs(dx) > .5 || Math.abs(dy) > .5;
@@ -641,6 +685,7 @@
     if (active.handle.includes("w")) { width = Math.max(minWidth, active.initial.width - dx); x = active.initial.x + active.initial.width - width; }
     if (active.handle.includes("n")) { height = Math.max(minHeight, active.initial.height - dy); y = active.initial.y + active.initial.height - height; }
     if (state.snap) { x = snap(x); y = snap(y); width = Math.max(minWidth, snap(width)); height = Math.max(minHeight, snap(height)); }
+    expandCanvas(x + width + CANVAS.padding, y + height + CANVAS.padding);
     node.x = clamp(x, CANVAS.padding, CANVAS.width - minWidth - CANVAS.padding);
     node.y = clamp(y, CANVAS.padding, CANVAS.height - minHeight - CANVAS.padding);
     node.width = Math.min(width, CANVAS.width - node.x - CANVAS.padding);
@@ -822,6 +867,7 @@
       const node = clone(source);
       idMap.set(node.id, uid("node"));
       node.id = idMap.get(node.id);
+      expandCanvas(node.x + node.width + 30 + CANVAS.padding, node.y + node.height + 30 + CANVAS.padding);
       node.x = clamp(node.x + 30, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
       node.y = clamp(node.y + 30, CANVAS.padding, CANVAS.height - node.height - CANVAS.padding);
       if (node.groupId) {
@@ -846,6 +892,7 @@
     const nodes = selectedNodes().filter((node) => !node.locked);
     if (!nodes.length) return;
     nodes.forEach((node) => {
+      expandCanvas(node.x + dx + node.width + CANVAS.padding, node.y + dy + node.height + CANVAS.padding);
       node.x = clamp(node.x + dx, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
       node.y = clamp(node.y + dy, CANVAS.padding, CANVAS.height - node.height - CANVAS.padding);
     });
@@ -884,7 +931,9 @@
       <section class="property-section"><div class="property-section-title">Canvas</div>
         <div class="inspector-action-stack"><button data-action="fit">Fit diagram</button><button data-view-action="grid">${state.showGrid === false ? "Show" : "Hide"} grid</button><button data-view-action="snap">${state.snap ? "Disable" : "Enable"} snap</button></div>
       </section>
-      <section class="property-section"><div class="property-section-title">Appearance</div><div class="theme-inline-grid"><button data-theme-value="light">Light</button><button data-theme-value="dark">Dark</button><button data-theme-value="system">System</button></div></section>
+      <section class="property-section"><div class="property-section-title">Developer</div>
+        <div class="inspector-action-stack"><button data-code-action="open">Open Code Studio</button><button data-code-action="validate">Validate flow</button></div>
+      </section>
       <section class="property-section"><div class="property-section-title">Quick start</div><p class="inspector-help">Choose a shape on the left, then click the canvas to place it. Double-click any shape to edit its text.</p></section>`;
   }
 
@@ -962,6 +1011,7 @@
       let value = Number(event.target.value);
       if (["width", "height"].includes(key)) value = Math.max(key === "width" ? 40 : 28, value);
       node[key] = value;
+      expandCanvas(node.x + node.width + CANVAS.padding, node.y + node.height + CANVAS.padding);
       node.x = clamp(node.x, CANVAS.padding, CANVAS.width - node.width - CANVAS.padding);
       node.y = clamp(node.y, CANVAS.padding, CANVAS.height - node.height - CANVAS.padding);
     } else if (event.target.dataset.edgeProp && edge) {
@@ -982,6 +1032,7 @@
     const toolbarAction = event.target.closest("[data-action]");
     const viewAction = event.target.closest("[data-view-action]");
     const themeChoice = event.target.closest("[data-theme-value]");
+    const codeAction = event.target.closest("[data-code-action]");
     if (preset) {
       const node = selectedNodes()[0]; if (!node) return;
       const presets = { paper: ["#ffffff", "#475569", "#172033"], ink: ["#17191d", "#6b7280", "#ffffff"], ocean: ["#dff4ff", "#0284c7", "#075985"], violet: ["#ede9fe", "#7c3aed", "#4c1d95"], mint: ["#dcfce7", "#16a34a", "#14532d"], sunset: ["#ffedd5", "#f97316", "#7c2d12"] };
@@ -997,6 +1048,7 @@
     else if (toolbarAction) handleToolbar(toolbarAction.dataset.action);
     else if (viewAction) handleViewAction(viewAction.dataset.viewAction);
     else if (themeChoice) applyTheme(themeChoice.dataset.themeValue);
+    else if (codeAction) handleCodeAction(codeAction.dataset.codeAction);
   }
 
   function arrangeSelection(kind) {
@@ -1072,6 +1124,7 @@
 
   function loadProject(data, message = "Loaded project") {
     const normalized = normalizeProject(data);
+    resetCanvasSize();
     state = { ...state, ...normalized, selectedIds: [], history: [], historyIndex: -1, mode: "select" };
     state.history = [snapshot()]; state.historyIndex = 0;
     refs.title.value = state.documentTitle; refs.snap.checked = state.snap;
@@ -1288,6 +1341,286 @@
     image.src = url;
   }
 
+  function codeIdentifier(value, fallback = "value") {
+    const normalized = String(value || "").trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+    const safe = normalized || fallback;
+    return /^[0-9]/.test(safe) ? `value_${safe}` : safe;
+  }
+
+  function compactText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function flowCodeModel() {
+    const nodes = [...state.nodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const outgoing = new Map(nodes.map((node) => [node.id, []]));
+    const incoming = new Map(nodes.map((node) => [node.id, []]));
+    state.edges.forEach((edge) => {
+      if (nodeById.has(edge.fromNodeId) && nodeById.has(edge.toNodeId)) {
+        outgoing.get(edge.fromNodeId).push(edge);
+        incoming.get(edge.toNodeId).push(edge);
+      }
+    });
+    const names = new Map(nodes.map((node, index) => [node.id, `step_${index + 1}`]));
+    const explicitStart = nodes.find((node) => node.type === "terminator" && /^(start|begin)$/i.test(compactText(node.text)));
+    const start = explicitStart || nodes.find((node) => !incoming.get(node.id).length) || nodes[0] || null;
+    return { nodes, nodeById, outgoing, incoming, names, start };
+  }
+
+  function readVariable(node) {
+    const match = compactText(node.text).match(/^(?:read|input|enter)\s+(.+?)(?:\s+from\s+user)?$/i);
+    return match ? codeIdentifier(match[1], "input_value") : null;
+  }
+
+  function displayInstruction(node) {
+    const text = compactText(node.text);
+    const quoted = text.match(/["“](.+?)["”]/);
+    if (quoted) return { kind: "literal", value: quoted[1] };
+    const match = text.match(/^(?:display|print|output|show)\s+(?:message\s*:?\s*)?(.+)$/i);
+    if (!match) return null;
+    const value = match[1].trim();
+    return /^[a-z_][a-z0-9_ ]*$/i.test(value) && !/\s+(?:message|is|the)\s+/i.test(value)
+      ? { kind: "variable", value: codeIdentifier(value) }
+      : { kind: "literal", value };
+  }
+
+  function processOperation(node) {
+    const text = compactText(node.text);
+    const operations = [
+      [/^multiply\s+(.+?)\s+by\s+(.+?)(?:\s+store result in\s+(.+))?$/i, "*"],
+      [/^add\s+(.+?)\s+(?:and|to)\s+(.+?)(?:\s+store result in\s+(.+))?$/i, "+"],
+      [/^subtract\s+(.+?)\s+from\s+(.+?)(?:\s+store result in\s+(.+))?$/i, "-"],
+      [/^divide\s+(.+?)\s+by\s+(.+?)(?:\s+store result in\s+(.+))?$/i, "/"]
+    ];
+    for (const [pattern, operator] of operations) {
+      const match = text.match(pattern);
+      if (!match) continue;
+      const left = codeIdentifier(operator === "-" ? match[2] : match[1]);
+      const right = codeIdentifier(operator === "-" ? match[1] : match[2]);
+      return { target: codeIdentifier(match[3] || "result"), expression: `${left} ${operator} ${right}`, variables: [left, right, codeIdentifier(match[3] || "result")] };
+    }
+    const assignment = text.match(/^(.+?)\s*=\s*(.+)$/);
+    if (assignment) return { target: codeIdentifier(assignment[1]), expression: assignment[2].replace(/\b[A-Za-z][A-Za-z0-9 ]*\b/g, (value) => codeIdentifier(value)), variables: [codeIdentifier(assignment[1])] };
+    return null;
+  }
+
+  function collectedVariables(model) {
+    const variables = new Set();
+    model.nodes.forEach((node) => {
+      const read = readVariable(node); if (read) variables.add(read);
+      const operation = processOperation(node); operation?.variables.forEach((variable) => variables.add(variable));
+      const display = displayInstruction(node); if (display?.kind === "variable") variables.add(display.value);
+    });
+    return [...variables];
+  }
+
+  function translatedCondition(text, language) {
+    let source = compactText(text).replace(/\?$/, "").replace(/^is\s+/i, "");
+    source = source.replace(/\bgreater than or equal to\b/gi, ">=").replace(/\bless than or equal to\b/gi, "<=")
+      .replace(/\bgreater than\b/gi, ">").replace(/\bless than\b/gi, "<").replace(/\bnot equal to\b/gi, "!=")
+      .replace(/\bequals?\b/gi, "==");
+    const match = source.match(/^(.+?)\s*(>=|<=|==|!=|>|<)\s*(.+)$/);
+    if (!match) return { expression: language === "python" ? "True" : "true", todo: source || "condition" };
+    const operand = (value) => /^-?\d+(?:\.\d+)?$/.test(value.trim()) ? value.trim() : codeIdentifier(value);
+    return { expression: `${operand(match[1])} ${match[2]} ${operand(match[3])}`, todo: null };
+  }
+
+  function branchEdges(edges) {
+    const yes = edges.find((edge) => /^(yes|true|y|1)$/i.test(compactText(edge.label)));
+    const no = edges.find((edge) => /^(no|false|n|0)$/i.test(compactText(edge.label)));
+    return { yes: yes || edges[0] || null, no: no || edges.find((edge) => edge !== yes) || edges[1] || null };
+  }
+
+  function nodeInstruction(node, language) {
+    const text = compactText(node.text);
+    const read = readVariable(node);
+    if (read) {
+      if (language === "python") return `${read} = float(input(${JSON.stringify(`${text.replace(/^(read|input|enter)\s+/i, "")}: `)}))`;
+      if (language === "cpp") return `std::cout << ${JSON.stringify(`${text.replace(/^(read|input|enter)\s+/i, "")}: `)}; std::cin >> ${read};`;
+      return `INPUT ${read}`;
+    }
+    const display = displayInstruction(node);
+    if (display) {
+      const value = display.kind === "literal" ? JSON.stringify(display.value) : display.value;
+      if (language === "python") return `print(${value})`;
+      if (language === "cpp") return `std::cout << ${value} << std::endl;`;
+      return `OUTPUT ${display.kind === "literal" ? value : display.value}`;
+    }
+    const operation = processOperation(node);
+    if (operation) return language === "pseudo" ? `SET ${operation.target} <- ${operation.expression}` : `${operation.target} = ${operation.expression}${language === "cpp" ? ";" : ""}`;
+    if (node.type === "terminator") return language === "pseudo" ? text.toUpperCase() : `${language === "python" ? "#" : "//"} ${text || "Terminator"}`;
+    return `${language === "pseudo" ? "PROCESS" : language === "python" ? "#" : "//"} ${text || node.type}`;
+  }
+
+  function generatePseudoCode(model) {
+    if (!model.start) return "PROGRAM empty_flow\n  // Add shapes and connectors to generate code.\nEND PROGRAM";
+    const lines = [`PROGRAM ${codeIdentifier(state.documentTitle, "flowchart")}`, `  state <- "${model.names.get(model.start.id)}"`, "  WHILE state != NONE", "    CASE state OF"];
+    model.nodes.forEach((node) => {
+      const name = model.names.get(node.id); const edges = model.outgoing.get(node.id); const end = node.type === "terminator" && /^(end|stop)$/i.test(compactText(node.text));
+      lines.push(`      "${name}":`, `        ${nodeInstruction(node, "pseudo")}`);
+      if (node.type === "decision" && edges.length >= 2) {
+        const branches = branchEdges(edges);
+        lines.push(`        IF ${compactText(node.text).replace(/\?$/, "") || "condition"} THEN`, `          state <- "${model.names.get(branches.yes.toNodeId)}"`, "        ELSE", `          state <- "${model.names.get(branches.no.toNodeId)}"`, "        END IF");
+      } else lines.push(`        state <- ${end || !edges.length ? "NONE" : `"${model.names.get(edges[0].toNodeId)}"`}`);
+    });
+    lines.push("    END CASE", "  END WHILE", "END PROGRAM");
+    return lines.join("\n");
+  }
+
+  function generatePython(model) {
+    if (!model.start) return "def run_flowchart():\n    pass\n\nif __name__ == \"__main__\":\n    run_flowchart()\n";
+    const lines = ["def run_flowchart():", `    state = "${model.names.get(model.start.id)}"`];
+    collectedVariables(model).forEach((variable) => lines.push(`    ${variable} = 0.0`));
+    lines.push("    while state is not None:");
+    model.nodes.forEach((node, index) => {
+      const edges = model.outgoing.get(node.id); const end = node.type === "terminator" && /^(end|stop)$/i.test(compactText(node.text));
+      lines.push(`        ${index ? "elif" : "if"} state == "${model.names.get(node.id)}":`, `            ${nodeInstruction(node, "python")}`);
+      if (node.type === "decision" && edges.length >= 2) {
+        const branches = branchEdges(edges); const condition = translatedCondition(node.text, "python");
+        if (condition.todo) lines.push(`            # TODO: replace fallback condition for: ${condition.todo}`);
+        lines.push(`            if ${condition.expression}:`, `                state = "${model.names.get(branches.yes.toNodeId)}"`, "            else:", `                state = "${model.names.get(branches.no.toNodeId)}"`);
+      } else lines.push(`            state = ${end || !edges.length ? "None" : `"${model.names.get(edges[0].toNodeId)}"`}`);
+    });
+    lines.push("        else:", "            raise RuntimeError(f\"Unknown flowchart state: {state}\")", "", "", "if __name__ == \"__main__\":", "    run_flowchart()", "");
+    return lines.join("\n");
+  }
+
+  function generateCpp(model) {
+    if (!model.start) return "#include <iostream>\n\nint main() {\n    return 0;\n}\n";
+    const lines = ["#include <iostream>", "#include <stdexcept>", "#include <string>", "", "int main() {"];
+    collectedVariables(model).forEach((variable) => lines.push(`    double ${variable}{};`));
+    lines.push(`    std::string state = "${model.names.get(model.start.id)}";`, "    while (!state.empty()) {");
+    model.nodes.forEach((node, index) => {
+      const edges = model.outgoing.get(node.id); const end = node.type === "terminator" && /^(end|stop)$/i.test(compactText(node.text));
+      lines.push(`        ${index ? "else " : ""}if (state == "${model.names.get(node.id)}") {`, `            ${nodeInstruction(node, "cpp")}`);
+      if (node.type === "decision" && edges.length >= 2) {
+        const branches = branchEdges(edges); const condition = translatedCondition(node.text, "cpp");
+        if (condition.todo) lines.push(`            // TODO: replace fallback condition for: ${condition.todo}`);
+        lines.push(`            if (${condition.expression}) state = "${model.names.get(branches.yes.toNodeId)}";`, `            else state = "${model.names.get(branches.no.toNodeId)}";`);
+      } else lines.push(`            state = ${end || !edges.length ? '""' : `"${model.names.get(edges[0].toNodeId)}"`};`);
+      lines.push("        }");
+    });
+    lines.push("        else throw std::runtime_error(\"Unknown flowchart state: \" + state);", "    }", "    return 0;", "}", "");
+    return lines.join("\n");
+  }
+
+  function validateFlow(model = flowCodeModel()) {
+    const issues = [];
+    if (!model.nodes.length) return [{ tone: "error", text: "The flowchart has no steps." }];
+    const starts = model.nodes.filter((node) => !model.incoming.get(node.id).length);
+    const ends = model.nodes.filter((node) => !model.outgoing.get(node.id).length);
+    if (!starts.length) issues.push({ tone: "error", text: "No entry step was found." });
+    if (starts.length > 1) issues.push({ tone: "warning", text: `${starts.length} entry steps found; generation starts with the first.` });
+    if (!ends.length) issues.push({ tone: "warning", text: "No terminal step was found; this may be an intentional loop." });
+    model.nodes.filter((node) => node.type === "decision" && model.outgoing.get(node.id).length < 2)
+      .forEach((node) => issues.push({ tone: "warning", text: `Decision “${compactText(node.text) || "Untitled"}” needs two outgoing branches.` }));
+    if (model.start) {
+      const reachable = new Set(); const queue = [model.start.id];
+      while (queue.length) {
+        const id = queue.shift(); if (reachable.has(id)) continue; reachable.add(id);
+        model.outgoing.get(id)?.forEach((edge) => queue.push(edge.toNodeId));
+      }
+      const unreachable = model.nodes.filter((node) => !reachable.has(node.id));
+      if (unreachable.length) issues.push({ tone: "warning", text: `${unreachable.length} step${unreachable.length === 1 ? " is" : "s are"} unreachable from the entry.` });
+    }
+    if (!issues.length) issues.push({ tone: "success", text: "Flow is connected and ready to generate." });
+    return issues;
+  }
+
+  function generatedCode(language = activeCodeLanguage) {
+    const model = flowCodeModel();
+    if (language === "python") return generatePython(model);
+    if (language === "cpp") return generateCpp(model);
+    return generatePseudoCode(model);
+  }
+
+  function refreshCodeStudio() {
+    if (!refs.codeOutput) return;
+    const model = flowCodeModel(); const issues = validateFlow(model);
+    refs.codeOutput.textContent = generatedCode(activeCodeLanguage);
+    refs.codeSummary.textContent = `${model.nodes.length} step${model.nodes.length === 1 ? "" : "s"} · ${state.edges.length} connector${state.edges.length === 1 ? "" : "s"}`;
+    refs.codeIssues.replaceChildren(...issues.map((issue) => {
+      const item = document.createElement("div"); item.className = `code-issue ${issue.tone}`; item.textContent = issue.text; return item;
+    }));
+    document.querySelectorAll("[data-code-language]").forEach((button) => {
+      const active = button.dataset.codeLanguage === activeCodeLanguage;
+      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function diagramAsText() {
+    return flowCodeModel().nodes.map((node) => {
+      const text = compactText(node.text);
+      if (node.type === "terminator") return /^start$/i.test(text) ? "start" : /^end$/i.test(text) ? "end" : `process ${text}`;
+      if (node.type === "decision") return `if ${text}`;
+      if (/^read\s+/i.test(text)) return `input ${text.replace(/^read\s+/i, "")}`;
+      if (/^display message\s*:/i.test(text)) return `ask ${text.replace(/^display message\s*:\s*/i, "").replace(/^["']|["']$/g, "")}`;
+      if (/^display\s+/i.test(text)) return `display ${text.replace(/^display\s+/i, "")}`;
+      if (node.type === "document") return `document ${text}`;
+      return `process ${text}`;
+    }).join("\n");
+  }
+
+  function parseTextStep(line) {
+    const match = line.match(/^(start|end|process|ask|input|set|if|decision|display|document)\b\s*:?\s*(.*)$/i);
+    if (!match) return { type: "process", text: line };
+    const command = match[1].toLowerCase();
+    const value = match[2].trim();
+    if (command === "start" || command === "end") return { type: "terminator", text: command.toUpperCase() };
+    if (command === "if" || command === "decision") return { type: "decision", text: value || "Condition?" };
+    if (command === "ask") return { type: "input", text: `Display message:\n"${value || "Message"}"` };
+    if (command === "input") return { type: "input", text: `Read ${value || "value"}` };
+    if (command === "display") return { type: "input", text: `Display ${value || "value"}` };
+    if (command === "document") return { type: "document", text: value || "Document" };
+    if (command === "set") return { type: "process", text: `Set ${value || "value = expression"}` };
+    return { type: "process", text: value || "Process" };
+  }
+
+  function applyTextFlow() {
+    const lines = refs.flowTextInput.value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && !line.startsWith("//"));
+    if (!lines.length) { showToast("Add at least one text step", "error"); return; }
+    const parsed = lines.map(parseTextStep);
+    const maxWidth = Math.max(...parsed.map(({ text }) => Math.min(360, Math.max(170, compactText(text).length * 7.2))));
+    const nodes = parsed.map(({ type, text }, index) => {
+      const node = createNode(type, 0, 54 + index * 132, text);
+      node.width = type === "terminator" ? 160 : type === "decision" ? Math.max(180, maxWidth) : maxWidth;
+      node.x = (A4.width - node.width) / 2;
+      return node;
+    });
+    const edges = nodes.slice(1).map((node, index) => ({
+      id: uid("edge"), fromNodeId: nodes[index].id, fromPort: "bottom", toNodeId: node.id, toPort: "top",
+      type: preferences.defaultConnector, label: nodes[index].type === "decision" ? "Yes" : "", style: { ...clone(DEFAULT_EDGE_STYLE), endArrow: preferences.defaultArrow }
+    }));
+    state.nodes = nodes; state.edges = edges; state.selectedIds = [];
+    CANVAS.width = A4.width; CANVAS.height = Math.max(A4.height, Math.ceil((nodes.length * 132 + 160) / A4.height) * A4.height);
+    commit("Diagram rebuilt from text");
+    render(); fitToScreen(); refreshCodeStudio();
+    showToast(`${nodes.length} text steps applied`, "success");
+  }
+
+  async function handleCodeAction(action) {
+    if (action === "open") { setOverlay("#code-modal", true); return; }
+    if (action === "load-text") { refs.flowTextInput.value = diagramAsText(); showToast("Diagram loaded into text", "success"); return; }
+    if (action === "apply-text") { applyTextFlow(); return; }
+    if (action === "validate") {
+      refreshCodeStudio();
+      const issues = validateFlow(); const warnings = issues.filter((issue) => issue.tone !== "success").length;
+      showToast(warnings ? `${warnings} flow issue${warnings === 1 ? "" : "s"} found` : "Flow validation passed", warnings ? "neutral" : "success");
+      return;
+    }
+    const code = generatedCode();
+    if (action === "copy") {
+      try { await navigator.clipboard.writeText(code); showToast("Code copied", "success"); }
+      catch { showToast("Copy failed — select the code manually", "error"); }
+    }
+    if (action === "download") {
+      const extensions = { pseudo: "txt", python: "py", cpp: "cpp" };
+      downloadBlob(new Blob([code], { type: "text/plain;charset=utf-8" }), safeFileName(extensions[activeCodeLanguage]));
+      showToast(`${activeCodeLanguage === "cpp" ? "C++" : activeCodeLanguage[0].toUpperCase() + activeCodeLanguage.slice(1)} downloaded`, "success");
+    }
+  }
+
   function handleToolbar(action) {
     const actions = {
       undo, redo, delete: deleteSelection, duplicate: duplicateSelection, clear: clearCanvas,
@@ -1461,6 +1794,7 @@
       refs.commandSearch.value = "";
       filterCommands();
     }
+    if (open && selector === "#code-modal") refreshCodeStudio();
     if (open) requestAnimationFrame(() => (selector === "#command-modal" ? refs.commandSearch : overlay.querySelector("button, input, [tabindex='0']"))?.focus({ preventScroll: true }));
   }
 
@@ -1507,6 +1841,7 @@
     if (button.dataset.commandAction) handleToolbar(button.dataset.commandAction);
     else if (button.dataset.commandMode) setMode(button.dataset.commandMode);
     else if (button.hasAttribute("data-command-settings")) setOverlay("#settings-modal", true);
+    else if (button.hasAttribute("data-command-code")) setOverlay("#code-modal", true);
   }
 
   function onKeyDown(event) {
@@ -1514,6 +1849,7 @@
     if (event.key === "Escape") { closeMenus(); closeOverlays(); }
     const command = event.ctrlKey || event.metaKey;
     if (command && event.key.toLowerCase() === "k") { event.preventDefault(); closeOverlays(); setOverlay("#command-modal", true); return; }
+    if (command && event.shiftKey && event.key.toLowerCase() === "c") { event.preventDefault(); closeOverlays(); setOverlay("#code-modal", true); return; }
     if (event.code === "Space" && !typing) { spacePressed = true; event.preventDefault(); }
     if (typing) return;
     if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
@@ -1593,6 +1929,12 @@
         showToast("Appearance updated", "success");
       }
       if (action?.dataset.settingsAction === "fit") fitToScreen();
+    });
+    document.querySelector("#code-modal").addEventListener("click", (event) => {
+      const language = event.target.closest("[data-code-language]");
+      const action = event.target.closest("[data-code-action]");
+      if (language) { activeCodeLanguage = language.dataset.codeLanguage; refreshCodeStudio(); }
+      if (action) handleCodeAction(action.dataset.codeAction);
     });
     refs.settingsGrid.addEventListener("change", () => {
       state.showGrid = refs.settingsGrid.checked;
@@ -1699,11 +2041,13 @@
   refs.title.value = state.documentTitle;
   refs.snap.checked = state.snap;
   setMode("select");
-  let restoredDraft = false;
   try {
     const draft = localStorage.getItem(PROJECT_KEY) || localStorage.getItem(LEGACY_DRAFT_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (draft) { loadProject(JSON.parse(draft), "Restored your local draft ✓"); restoredDraft = true; }
+    if (draft) loadProject(JSON.parse(draft), "Ready");
   } catch {}
-  if (!restoredDraft) requestAnimationFrame(() => { fitToScreen(); persistLocal(); });
-  else persistLocal();
+  requestAnimationFrame(() => {
+    fitToScreen();
+    setStatus("Ready");
+    persistLocal();
+  });
 })();

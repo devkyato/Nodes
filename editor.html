@@ -61,9 +61,7 @@
   <div id="app">
     <header class="toolbar" aria-label="Editor toolbar">
       <a class="brand-mark" href="./" aria-label="Back to your flowcharts" title="Back to your flowcharts">
-        <span class="brand-icon" aria-hidden="true">◇</span>
         <span class="brand-word">nodes<span class="brand-cursor">_</span></span>
-        <span class="brand-badge">studio</span>
       </a>
       <input id="document-title" class="document-title input input-sm" value="Untitled Flowchart" aria-label="Document title" title="Name your flowchart">
       <span class="toolbar-separator"></span>
@@ -77,7 +75,8 @@
         <button type="button" class="tool-button btn btn-sm btn-text" data-mode="text" title="Text tool (T)">✎ Text</button>
       </div>
       <div class="premium-toolbar-actions" aria-label="Editor actions">
-        <button type="button" class="topbar-action save-action" data-action="save" title="Save checkpoint (Ctrl+S)">✓ Saved locally</button>
+        <button type="button" class="topbar-action code-studio-action" data-overlay="#code-modal" aria-controls="code-modal" aria-expanded="false">Code</button>
+        <button type="button" class="topbar-action save-action" data-action="save" title="Save checkpoint (Ctrl+S)" aria-label="Save checkpoint">Save</button>
         <details class="native-menu">
           <summary id="arrange-native">Arrange</summary>
           <div class="native-menu-panel arrange-panel" role="menu" aria-labelledby="arrange-native">
@@ -195,7 +194,7 @@
 
     <aside class="shape-panel" aria-label="Flowchart shapes">
       <div class="panel-heading">
-        <span>🧩 Shapes</span>
+        <span>Shapes</span>
         <label class="snap-toggle" title="Snap objects to the grid">
           <input id="snap-toggle" type="checkbox" checked> Snap
         </label>
@@ -213,6 +212,9 @@
           <pattern id="small-grid" width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e8ebef" stroke-width="1" vector-effect="non-scaling-stroke"></path>
           </pattern>
+          <pattern id="page-grid" width="794" height="1123" patternUnits="userSpaceOnUse">
+            <rect x="0.5" y="0.5" width="793" height="1122" fill="none" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"></rect>
+          </pattern>
           <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
             <path d="M0,0 L0,6 L9,3 z" fill="context-stroke"></path>
           </marker>
@@ -227,8 +229,9 @@
           </marker>
         </defs>
         <g id="viewport">
-          <rect class="workspace-bg" x="0" y="0" width="2400" height="1600"></rect>
-          <rect class="grid" x="0" y="0" width="2400" height="1600"></rect>
+          <rect class="workspace-bg" x="0" y="0" width="794" height="1123"></rect>
+          <rect class="grid" x="0" y="0" width="794" height="1123"></rect>
+          <rect class="page-grid" x="0" y="0" width="794" height="1123"></rect>
           <g id="edge-layer"></g>
           <g id="node-layer"></g>
           <g id="overlay-layer"></g>
@@ -250,10 +253,9 @@
     </aside>
 
     <footer class="statusbar">
-      <span id="status-text" aria-live="polite">Ready to create ✨</span>
-      <a class="maintainer-link" href="https://github.com/devkyato" target="_blank" rel="noreferrer" title="Built and maintained by @dev.mako">Made with care by @dev.mako</a>
+      <span id="status-text" aria-live="polite">Ready</span>
       <span id="selection-status">0 selected</span>
-      <span id="canvas-size-status">2400 × 1600</span>
+      <span id="canvas-size-status">1 A4 page</span>
     </footer>
   </div>
   <div id="clear-canvas-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1" aria-labelledby="clear-canvas-title">
@@ -295,6 +297,7 @@
           <span>Duplicate</span><kbd>Ctrl / ⌘ + D</kbd>
           <span>Undo</span><kbd>Ctrl / ⌘ + Z</kbd>
           <span>Save checkpoint</span><kbd>Ctrl / ⌘ + S</kbd>
+          <span>Open Code Studio</span><kbd>Ctrl / ⌘ + Shift + C</kbd>
           <span>Nudge precisely</span><kbd>Arrow keys</kbd>
         </div>
         <div class="modal-footer">
@@ -348,6 +351,54 @@
     </div>
   </div>
 
+  <div id="code-modal" class="overlay modal hidden" role="dialog" tabindex="-1" aria-labelledby="code-title">
+    <div class="modal-dialog code-dialog">
+      <div class="modal-content premium-modal code-modal-content">
+        <div class="modal-header">
+          <div>
+            <span class="modal-kicker">Developer tools</span>
+            <h2 id="code-title" class="modal-title">Code Studio</h2>
+          </div>
+          <button type="button" class="btn btn-text btn-circle btn-sm" aria-label="Close Code Studio" data-overlay="#code-modal">×</button>
+        </div>
+        <div class="code-workbench">
+          <aside class="code-validation" aria-label="Flow validation">
+            <div class="code-panel-heading"><strong>Flow health</strong><button type="button" data-code-action="validate">Refresh</button></div>
+            <div id="code-issues" class="code-issues" aria-live="polite"></div>
+            <div class="text-flow-builder">
+              <div class="code-panel-heading"><strong>Build with text</strong><button type="button" data-code-action="load-text">From diagram</button></div>
+              <textarea id="flow-text-input" spellcheck="false" aria-label="Text flow definition" placeholder="start
+ask How many hours?
+input hours
+set gross_pay = hours * pay_rate
+if gross_pay > 1000
+display gross_pay
+end"></textarea>
+              <p>One step per line: start, process, ask, input, set, if, display, document, or end.</p>
+              <button type="button" class="text-flow-apply" data-code-action="apply-text">Apply to diagram</button>
+            </div>
+          </aside>
+          <section class="code-preview-panel">
+            <div class="code-toolbar">
+              <div class="code-language-tabs" role="tablist" aria-label="Generated language">
+                <button type="button" class="active" role="tab" aria-selected="true" data-code-language="pseudo">Pseudocode</button>
+                <button type="button" role="tab" aria-selected="false" data-code-language="python">Python</button>
+                <button type="button" role="tab" aria-selected="false" data-code-language="cpp">C++</button>
+              </div>
+              <span id="code-summary">0 steps</span>
+            </div>
+            <pre class="code-output-wrap"><code id="code-output"></code></pre>
+          </section>
+        </div>
+        <div class="modal-footer code-footer">
+          <span class="modal-note">Generated as a state machine so branches and loops remain executable.</span>
+          <button type="button" class="btn btn-sm btn-soft" data-code-action="copy">Copy code</button>
+          <button type="button" class="btn btn-sm btn-primary" data-code-action="download">Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="command-modal" class="overlay modal command-overlay hidden" role="dialog" tabindex="-1" aria-labelledby="command-title">
     <div class="modal-dialog command-dialog">
       <div class="modal-content premium-modal">
@@ -363,6 +414,7 @@
           <button type="button" data-command-mode="select"><span>↖</span><span><strong>Select tool</strong><small>Tools</small></span><kbd>V</kbd></button>
           <button type="button" data-command-mode="connect"><span>⤴</span><span><strong>Connector tool</strong><small>Tools</small></span><kbd>C</kbd></button>
           <button type="button" data-command-mode="text"><span>✎</span><span><strong>Text tool</strong><small>Tools</small></span><kbd>T</kbd></button>
+          <button type="button" data-command-code><span>&lt;/&gt;</span><span><strong>Open Code Studio</strong><small>Developer</small></span></button>
           <button type="button" data-command-action="export-svg"><span>◇</span><span><strong>Export SVG</strong><small>File</small></span></button>
           <button type="button" data-command-settings><span>⚙</span><span><strong>Open settings</strong><small>Workspace</small></span></button>
         </div>
