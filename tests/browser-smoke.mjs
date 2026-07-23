@@ -153,9 +153,14 @@ try {
     canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: 80, bubbles: true, cancelable: true }));
     const afterWheel = viewport.getAttribute('transform');
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }));
-    const gridHidden = document.querySelector('.grid').hasAttribute('hidden');
+    const gridHidden = document.querySelector('.grid').hasAttribute('hidden') &&
+      document.querySelector('.major-grid').hasAttribute('hidden');
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }));
-    return { before, panMode, afterKeys, afterWheel, gridHidden, gridVisibleAgain: !document.querySelector('.grid').hasAttribute('hidden') };
+    return {
+      before, panMode, afterKeys, afterWheel, gridHidden,
+      gridVisibleAgain: !document.querySelector('.grid').hasAttribute('hidden') &&
+        !document.querySelector('.major-grid').hasAttribute('hidden')
+    };
   })()`);
   assert(navigation.panMode === "pan", "H did not activate the pan tool");
   assert(navigation.before !== navigation.afterKeys && navigation.afterKeys !== navigation.afterWheel, "Keyboard and wheel panning did not update the viewport");

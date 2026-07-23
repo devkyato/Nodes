@@ -1018,7 +1018,8 @@ body::before, .library-page::before { display: none; }
   --canvas-shell: #fff;
   --workspace: #fff;
   --workspace-border: #cfcfcf;
-  --grid-line: #ededed;
+  --grid-line: #d5dbe3;
+  --grid-major: #aeb8c5;
   --input: #fff;
   --app-bg: #fff;
 }
@@ -1041,7 +1042,8 @@ body::before, .library-page::before { display: none; }
   --canvas-shell: #000;
   --workspace: #000;
   --workspace-border: #303030;
-  --grid-line: #151515;
+  --grid-line: #293441;
+  --grid-major: #465366;
   --input: #080808;
   --app-bg: #000;
 }
@@ -1196,6 +1198,9 @@ body, .library-simple, .canvas-shell, .shape-panel, .premium-inspector, .statusb
 .project-options-menu .project-delete:hover { color: #d14343; }
 
 #small-grid path { stroke: var(--grid-line); stroke-width: 1.15; }
+.major-grid { fill: url(#major-grid); pointer-events: none; opacity: .72; }
+#major-grid path { stroke: var(--grid-major); }
+.major-grid[hidden] { display: none; }
 .page-grid { opacity: .9; }
 .page-grid { fill: url(#page-grid); color: var(--workspace-border); pointer-events: none; }
 

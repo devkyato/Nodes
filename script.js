@@ -90,6 +90,7 @@
     contextToolbar: document.querySelector("#context-toolbar"),
     shapeSearch: document.querySelector("#shape-search"),
     grid: document.querySelector(".grid"),
+    majorGrid: document.querySelector(".major-grid"),
     workspace: document.querySelector(".workspace-bg"),
     pageGrid: document.querySelector(".page-grid"),
     canvasSize: document.querySelector("#canvas-size-status"),
@@ -409,6 +410,7 @@
     refs.selectionStatus.textContent = `${state.selectedIds.length} selected`;
     refs.shell.dataset.mode = state.mode;
     refs.grid.toggleAttribute("hidden", state.showGrid === false);
+    refs.majorGrid?.toggleAttribute("hidden", state.showGrid === false);
     renderProperties();
     renderContextToolbar();
     updateToolbar();
@@ -416,7 +418,7 @@
   }
 
   function updateCanvasElements() {
-    [refs.workspace, refs.grid, refs.pageGrid].forEach((element) => {
+    [refs.workspace, refs.grid, refs.majorGrid, refs.pageGrid].forEach((element) => {
       element?.setAttribute("width", CANVAS.width);
       element?.setAttribute("height", CANVAS.height);
     });
